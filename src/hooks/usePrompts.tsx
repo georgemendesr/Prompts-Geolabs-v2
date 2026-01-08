@@ -258,3 +258,65 @@ export function useDeletePrompts() {
     },
   });
 }
+
+export function useCreatePrompt() {
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  return useMutation({
+    mutationFn: async (data: {
+      title: string;
+      content: string;
+      category_id: string;
+      subcategory?: string;
+      tags?: string[];
+    }) => {
+      if (!user) throw new Error('User not authenticated');
+
+      const { error } = await supabase
+        .from('prompts')
+        .insert({
+          ...data,
+          user_id: user.id,
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Prompt criado!');
+      queryClient.invalidateQueries({ queryKey: ['prompts'] });
+    },
+    onError: () => {
+      toast.error('Erro ao criar prompt');
+    },
+  });
+}
+
+export function useAllPromptsByCategory() {
+  const { user } = useAuth();
+
+  return useQuery({
+    queryKey: ['prompts-all-by-category'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('prompts')
+        .select(`
+          *,
+          categories (
+            id,
+            name,
+            slug,
+            icon,
+            color
+          )
+        `)
+        .order('rating', { ascending: false, nullsFirst: false })
+        .order('usage_count', { ascending: false })
+        .order('legacy_score', { ascending: false });
+
+      if (error) throw error;
+      return data as Prompt[];
+    },
+    enabled: !!user,
+  });
+}
