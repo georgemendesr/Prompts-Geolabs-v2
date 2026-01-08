@@ -21,16 +21,18 @@ export function Layout({ children }: LayoutProps) {
   const location = useLocation();
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-20 md:pb-0">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-14 items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-sm font-bold text-primary-foreground">SP</span>
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
+              <span className="text-sm font-bold text-white">SP</span>
             </div>
-            <span className="font-semibold text-lg hidden sm:inline">Super Prompts</span>
+            <span className="font-bold text-lg hidden sm:inline bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">
+              Super Prompts
+            </span>
           </Link>
 
           {/* Desktop Navigation */}
