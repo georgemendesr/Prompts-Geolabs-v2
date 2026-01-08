@@ -22,6 +22,7 @@ export type Database = {
           id: string
           name: string
           slug: string
+          sort_order: number | null
         }
         Insert: {
           color?: string | null
@@ -30,6 +31,7 @@ export type Database = {
           id?: string
           name: string
           slug: string
+          sort_order?: number | null
         }
         Update: {
           color?: string | null
@@ -38,6 +40,7 @@ export type Database = {
           id?: string
           name?: string
           slug?: string
+          sort_order?: number | null
         }
         Relationships: []
       }
