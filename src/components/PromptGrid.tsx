@@ -1,18 +1,14 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Search, Loader2, Trash2, X, CheckSquare } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { PromptCard } from './PromptCard';
-import { CategoryPills } from './CategoryPills';
-import { SubcategoryPills } from './SubcategoryPills';
+import { CategorySection } from './CategorySection';
 import { PromptDetailDrawer } from './PromptDetailDrawer';
 import { PromptEditDialog } from './PromptEditDialog';
-import { usePrompts, useCategories, useSubcategories, Prompt, useDeletePrompts } from '@/hooks/usePrompts';
+import { useCategories, useAllPromptsByCategory, Prompt, useDeletePrompts } from '@/hooks/usePrompts';
 import { useDebounce } from '@/hooks/useDebounce';
 
 export function PromptGrid() {
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [selectedSubcategory, setSelectedSubcategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
   const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
@@ -22,18 +18,31 @@ export function PromptGrid() {
   const debouncedSearch = useDebounce(searchQuery, 300);
   
   const { data: categories = [], isLoading: loadingCategories } = useCategories();
-  const { data: subcategories = [] } = useSubcategories(selectedCategory || undefined);
-  const { data: prompts = [], isLoading: loadingPrompts } = usePrompts(
-    selectedCategory || undefined,
-    selectedSubcategory || undefined,
-    debouncedSearch || undefined
-  );
+  const { data: allPrompts = [], isLoading: loadingPrompts } = useAllPromptsByCategory();
   const deletePrompts = useDeletePrompts();
 
-  const handleCategorySelect = (slug: string | null) => {
-    setSelectedCategory(slug);
-    setSelectedSubcategory(null);
-  };
+  // Filter prompts by search and group by category
+  const promptsByCategory = useMemo(() => {
+    const filtered = debouncedSearch
+      ? allPrompts.filter(p => 
+          p.title.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+          p.content.toLowerCase().includes(debouncedSearch.toLowerCase())
+        )
+      : allPrompts;
+
+    const grouped: Record<string, Prompt[]> = {};
+    categories.forEach(cat => {
+      grouped[cat.id] = [];
+    });
+
+    filtered.forEach(prompt => {
+      if (prompt.category_id && grouped[prompt.category_id]) {
+        grouped[prompt.category_id].push(prompt);
+      }
+    });
+
+    return grouped;
+  }, [allPrompts, categories, debouncedSearch]);
 
   const handleSelect = (promptId: string, selected: boolean) => {
     const newSelection = new Set(selectedIds);
@@ -66,8 +75,10 @@ export function PromptGrid() {
     setSelectionMode(!selectionMode);
   };
 
+  const isLoading = loadingCategories || loadingPrompts;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* Search Bar & Actions */}
       <div className="flex gap-2">
         <div className="relative flex-1">
@@ -107,57 +118,35 @@ export function PromptGrid() {
         </div>
       )}
 
-      {/* Category Pills */}
-      {!loadingCategories && (
-        <CategoryPills
-          categories={categories}
-          selectedCategory={selectedCategory}
-          onSelect={handleCategorySelect}
-        />
-      )}
-
-      {/* Subcategory Pills */}
-      <SubcategoryPills
-        subcategories={subcategories}
-        selectedSubcategory={selectedSubcategory}
-        onSelect={setSelectedSubcategory}
-      />
-
       {/* Loading State */}
-      {loadingPrompts && (
+      {isLoading && (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       )}
 
       {/* Empty State */}
-      {!loadingPrompts && prompts.length === 0 && (
+      {!isLoading && allPrompts.length === 0 && (
         <div className="text-center py-12">
           <p className="text-muted-foreground">
-            {searchQuery
-              ? 'Nenhum prompt encontrado para sua busca.'
-              : 'Nenhum prompt disponível. Importe seus prompts para começar!'}
+            Nenhum prompt disponível. Clique em "Novo Prompt" em qualquer categoria para começar!
           </p>
         </div>
       )}
 
-      {/* Prompt Grid */}
-      {!loadingPrompts && prompts.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {prompts.map((prompt, index) => (
-            <PromptCard
-              key={prompt.id}
-              prompt={prompt}
-              rank={index + 1}
-              onView={setSelectedPrompt}
-              onEdit={setEditingPrompt}
-              isSelected={selectedIds.has(prompt.id)}
-              onSelect={handleSelect}
-              selectionMode={selectionMode}
-            />
-          ))}
-        </div>
-      )}
+      {/* Category Sections */}
+      {!isLoading && categories.map(category => (
+        <CategorySection
+          key={category.id}
+          category={category}
+          prompts={promptsByCategory[category.id] || []}
+          onView={setSelectedPrompt}
+          onEdit={setEditingPrompt}
+          selectionMode={selectionMode}
+          selectedIds={selectedIds}
+          onSelect={handleSelect}
+        />
+      ))}
 
       {/* Prompt Detail Drawer */}
       <PromptDetailDrawer
