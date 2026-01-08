@@ -7,6 +7,7 @@ export interface Prompt {
   id: string;
   user_id: string;
   category_id: string | null;
+  subcategory_group_id: string | null;
   title: string;
   content: string;
   subcategory: string | null;
@@ -25,6 +26,11 @@ export interface Prompt {
     icon: string | null;
     color: string | null;
   } | null;
+  subcategory_groups?: {
+    id: string;
+    name: string;
+    slug: string;
+  } | null;
 }
 
 export interface Category {
@@ -33,6 +39,14 @@ export interface Category {
   slug: string;
   icon: string | null;
   color: string | null;
+}
+
+export interface SubcategoryGroup {
+  id: string;
+  name: string;
+  slug: string;
+  category_id: string;
+  sort_order: number;
 }
 
 export function useCategories() {
@@ -50,11 +64,38 @@ export function useCategories() {
   });
 }
 
-export function usePrompts(categorySlug?: string, subcategory?: string, search?: string) {
+export function useSubcategoryGroups(categoryId?: string) {
+  return useQuery({
+    queryKey: ['subcategory-groups', categoryId],
+    queryFn: async () => {
+      let query = supabase
+        .from('subcategory_groups')
+        .select('*')
+        .order('sort_order');
+
+      if (categoryId) {
+        query = query.eq('category_id', categoryId);
+      }
+
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      return data as SubcategoryGroup[];
+    },
+    enabled: !!categoryId,
+  });
+}
+
+export function usePrompts(
+  categorySlug?: string, 
+  subcategoryGroupId?: string, 
+  subcategory?: string, 
+  search?: string
+) {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['prompts', categorySlug, subcategory, search],
+    queryKey: ['prompts', categorySlug, subcategoryGroupId, subcategory, search],
     queryFn: async () => {
       let query = supabase
         .from('prompts')
@@ -66,6 +107,11 @@ export function usePrompts(categorySlug?: string, subcategory?: string, search?:
             slug,
             icon,
             color
+          ),
+          subcategory_groups (
+            id,
+            name,
+            slug
           )
         `)
         .order('rating', { ascending: false, nullsFirst: false })
@@ -85,6 +131,10 @@ export function usePrompts(categorySlug?: string, subcategory?: string, search?:
         }
       }
 
+      if (subcategoryGroupId) {
+        query = query.eq('subcategory_group_id', subcategoryGroupId);
+      }
+
       if (subcategory) {
         query = query.eq('subcategory', subcategory);
       }
@@ -102,26 +152,18 @@ export function usePrompts(categorySlug?: string, subcategory?: string, search?:
   });
 }
 
-export function useSubcategories(categorySlug?: string) {
+export function useSubcategories(subcategoryGroupId?: string) {
   const { user } = useAuth();
 
   return useQuery({
-    queryKey: ['subcategories', categorySlug],
+    queryKey: ['subcategories', subcategoryGroupId],
     queryFn: async () => {
       let query = supabase
         .from('prompts')
         .select('subcategory');
 
-      if (categorySlug) {
-        const { data: category } = await supabase
-          .from('categories')
-          .select('id')
-          .eq('slug', categorySlug)
-          .maybeSingle();
-        
-        if (category) {
-          query = query.eq('category_id', category.id);
-        }
+      if (subcategoryGroupId) {
+        query = query.eq('subcategory_group_id', subcategoryGroupId);
       }
 
       const { data, error } = await query;
@@ -137,10 +179,9 @@ export function useSubcategories(categorySlug?: string) {
 
       return Object.entries(subcategoryCount)
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 10)
         .map(([name, count]) => ({ name, count }));
     },
-    enabled: !!user,
+    enabled: !!user && !!subcategoryGroupId,
   });
 }
 
@@ -214,6 +255,7 @@ export function useUpdatePrompt() {
         title?: string;
         content?: string;
         subcategory?: string | null;
+        subcategory_group_id?: string | null;
         tags?: string[];
       }
     }) => {
@@ -268,6 +310,7 @@ export function useCreatePrompt() {
       title: string;
       content: string;
       category_id: string;
+      subcategory_group_id?: string;
       subcategory?: string;
       tags?: string[];
     }) => {
@@ -285,38 +328,10 @@ export function useCreatePrompt() {
     onSuccess: () => {
       toast.success('Prompt criado!');
       queryClient.invalidateQueries({ queryKey: ['prompts'] });
+      queryClient.invalidateQueries({ queryKey: ['subcategories'] });
     },
     onError: () => {
       toast.error('Erro ao criar prompt');
     },
-  });
-}
-
-export function useAllPromptsByCategory() {
-  const { user } = useAuth();
-
-  return useQuery({
-    queryKey: ['prompts-all-by-category'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('prompts')
-        .select(`
-          *,
-          categories (
-            id,
-            name,
-            slug,
-            icon,
-            color
-          )
-        `)
-        .order('rating', { ascending: false, nullsFirst: false })
-        .order('usage_count', { ascending: false })
-        .order('legacy_score', { ascending: false });
-
-      if (error) throw error;
-      return data as Prompt[];
-    },
-    enabled: !!user,
   });
 }

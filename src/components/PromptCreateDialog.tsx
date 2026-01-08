@@ -4,15 +4,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { useCreatePrompt, Category } from '@/hooks/usePrompts';
+import { useCreatePrompt, Category, SubcategoryGroup } from '@/hooks/usePrompts';
 
 interface PromptCreateDialogProps {
   open: boolean;
   onClose: () => void;
   category: Category;
+  subcategoryGroup?: SubcategoryGroup | null;
 }
 
-export function PromptCreateDialog({ open, onClose, category }: PromptCreateDialogProps) {
+export function PromptCreateDialog({ open, onClose, category, subcategoryGroup }: PromptCreateDialogProps) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [subcategory, setSubcategory] = useState('');
@@ -27,6 +28,7 @@ export function PromptCreateDialog({ open, onClose, category }: PromptCreateDial
       title,
       content,
       category_id: category.id,
+      subcategory_group_id: subcategoryGroup?.id,
       subcategory: subcategory || undefined,
       tags: tags.split(',').map(t => t.trim()).filter(Boolean),
     }, {
@@ -52,7 +54,10 @@ export function PromptCreateDialog({ open, onClose, category }: PromptCreateDial
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Novo Prompt - {category.name}</DialogTitle>
+          <DialogTitle>
+            Novo Prompt - {category.name}
+            {subcategoryGroup && ` / ${subcategoryGroup.name}`}
+          </DialogTitle>
         </DialogHeader>
         
         <div className="space-y-4 py-4">
@@ -83,7 +88,7 @@ export function PromptCreateDialog({ open, onClose, category }: PromptCreateDial
               id="create-subcategory"
               value={subcategory}
               onChange={(e) => setSubcategory(e.target.value)}
-              placeholder="Ex: Reggae, Pop, etc."
+              placeholder="Ex: Forró Master, Reggae Premium, etc."
             />
           </div>
           
