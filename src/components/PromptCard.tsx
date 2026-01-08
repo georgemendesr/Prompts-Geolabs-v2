@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Copy, Star } from 'lucide-react';
+import { Copy, Star, Edit2, Check } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Prompt, useUpdatePromptUsage, useUpdatePromptRating } from '@/hooks/usePrompts';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -11,47 +12,76 @@ interface PromptCardProps {
   prompt: Prompt;
   rank: number;
   onView?: (prompt: Prompt) => void;
+  onEdit?: (prompt: Prompt) => void;
+  isSelected?: boolean;
+  onSelect?: (promptId: string, selected: boolean) => void;
+  selectionMode?: boolean;
 }
 
-const categoryBadgeClass: Record<string, string> = {
-  musica: 'badge-musica',
-  texto: 'badge-texto',
-  video: 'badge-video',
-  imagem: 'badge-imagem',
-};
-
-export function PromptCard({ prompt, rank, onView }: PromptCardProps) {
+export function PromptCard({ 
+  prompt, 
+  rank, 
+  onView, 
+  onEdit,
+  isSelected = false,
+  onSelect,
+  selectionMode = false
+}: PromptCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [hoveredStar, setHoveredStar] = useState(0);
+  const [copied, setCopied] = useState(false);
   const updateUsage = useUpdatePromptUsage();
   const updateRating = useUpdatePromptRating();
 
   const isTop5 = rank <= 5;
-  const categorySlug = prompt.categories?.slug || 'texto';
 
-  const handleCopy = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    
+  const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(prompt.content);
       
-      // Vibrate on mobile
       if ('vibrate' in navigator) {
         navigator.vibrate(50);
       }
       
       updateUsage.mutate(prompt.id);
+      setCopied(true);
       toast.success('Prompt copiado!', {
         description: `${prompt.title}`,
         duration: 2000,
       });
+      
+      setTimeout(() => setCopied(false), 2000);
     } catch {
       toast.error('Erro ao copiar');
     }
   };
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't copy if clicking on interactive elements
+    const target = e.target as HTMLElement;
+    if (
+      target.closest('[data-interactive]') ||
+      target.closest('button') ||
+      target.closest('[role="checkbox"]')
+    ) {
+      return;
+    }
+    handleCopy();
+  };
+
   const handleRating = (e: React.MouseEvent, newRating: number) => {
     e.stopPropagation();
     updateRating.mutate({ promptId: prompt.id, rating: newRating });
+  };
+
+  const handleEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onEdit?.(prompt);
+  };
+
+  const handleSelect = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onSelect?.(prompt.id, !isSelected);
   };
 
   const truncatedContent = prompt.content.length > 150
@@ -63,46 +93,66 @@ export function PromptCard({ prompt, rank, onView }: PromptCardProps) {
       className={cn(
         'group relative cursor-pointer transition-all duration-300 hover:scale-[1.02]',
         'border border-border/50 hover:border-primary/30',
-        isTop5 && 'top-highlight animate-pulse-glow border-top-highlight/50'
+        isTop5 && 'bg-primary/5 border-primary/20',
+        isSelected && 'ring-2 ring-primary bg-primary/10',
+        copied && 'bg-green-500/10 border-green-500/30'
       )}
       onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      onClick={() => onView?.(prompt)}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        setHoveredStar(0);
+      }}
+      onClick={handleCardClick}
     >
       {/* Top 5 Rank Badge */}
       {isTop5 && (
-        <div className="absolute -top-2 -left-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-top-highlight text-background font-bold text-sm shadow-lg">
+        <div className="absolute -top-2 -left-2 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-sm shadow-lg">
           #{rank}
         </div>
       )}
 
-      {/* Copy Button */}
+      {/* Selection Checkbox */}
+      {selectionMode && (
+        <div 
+          className="absolute top-3 left-3 z-10"
+          data-interactive
+          onClick={handleSelect}
+        >
+          <Checkbox 
+            checked={isSelected}
+            className="h-5 w-5 border-2"
+          />
+        </div>
+      )}
+
+      {/* Edit Button */}
       <Button
         size="icon"
-        variant="secondary"
+        variant="ghost"
         className={cn(
           'absolute top-3 right-3 z-10 transition-all duration-200',
-          'bg-primary hover:bg-primary/80 text-primary-foreground',
-          'shadow-lg shadow-primary/20',
-          isHovered ? 'opacity-100 scale-100' : 'opacity-0 scale-90'
+          'hover:bg-muted',
+          isHovered ? 'opacity-100' : 'opacity-0'
         )}
-        onClick={handleCopy}
+        onClick={handleEdit}
+        data-interactive
       >
-        <Copy className="h-4 w-4" />
+        <Edit2 className="h-4 w-4" />
       </Button>
 
-      <CardContent className="p-4">
-        {/* Category Badge */}
+      {/* Copied indicator */}
+      {copied && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background/80 rounded-lg z-20">
+          <div className="flex items-center gap-2 text-green-600">
+            <Check className="h-6 w-6" />
+            <span className="font-medium">Copiado!</span>
+          </div>
+        </div>
+      )}
+
+      <CardContent className={cn("p-4", selectionMode && "pl-10")}>
+        {/* Subcategory Badge */}
         <div className="flex items-center gap-2 mb-2">
-          <Badge
-            variant="outline"
-            className={cn(
-              'text-xs font-medium',
-              categoryBadgeClass[categorySlug]
-            )}
-          >
-            {prompt.categories?.name || 'Sem categoria'}
-          </Badge>
           {prompt.subcategory && (
             <Badge variant="secondary" className="text-xs">
               {prompt.subcategory}
@@ -120,20 +170,25 @@ export function PromptCard({ prompt, rank, onView }: PromptCardProps) {
           {truncatedContent}
         </p>
 
-        {/* Footer: Stars & Tags */}
+        {/* Footer: Stars, Rating & Usage */}
         <div className="flex items-center justify-between">
           {/* Star Rating */}
-          <div className="flex items-center gap-0.5">
+          <div 
+            className="flex items-center gap-0.5"
+            data-interactive
+            onMouseLeave={() => setHoveredStar(0)}
+          >
             {[1, 2, 3, 4, 5].map((star) => (
               <button
                 key={star}
                 onClick={(e) => handleRating(e, star)}
+                onMouseEnter={() => setHoveredStar(star)}
                 className="p-0.5 transition-transform hover:scale-110"
               >
                 <Star
                   className={cn(
                     'h-4 w-4 transition-colors',
-                    star <= prompt.rating
+                    star <= (hoveredStar || prompt.rating)
                       ? 'fill-yellow-400 text-yellow-400'
                       : 'text-muted-foreground/30'
                   )}
@@ -142,10 +197,18 @@ export function PromptCard({ prompt, rank, onView }: PromptCardProps) {
             ))}
           </div>
 
-          {/* Usage Count */}
-          <span className="text-xs text-muted-foreground">
-            {prompt.usage_count > 0 && `${prompt.usage_count} usos`}
-          </span>
+          {/* Rating & Usage Stats */}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            {prompt.rating > 0 && (
+              <span className="flex items-center gap-1">
+                <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                {prompt.rating.toFixed(1)}
+              </span>
+            )}
+            {prompt.usage_count > 0 && (
+              <span>{prompt.usage_count} usos</span>
+            )}
+          </div>
         </div>
 
         {/* Tags */}

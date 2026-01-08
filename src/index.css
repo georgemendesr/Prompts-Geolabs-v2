@@ -124,22 +124,7 @@
 }
 
 @layer utilities {
-  /* Top 5 card highlight animation */
-  .top-highlight {
-    @apply relative;
-    box-shadow: 0 0 20px hsl(var(--top-highlight-glow)), 
-                0 0 40px hsl(var(--top-highlight-glow));
-  }
-
-  .top-highlight::before {
-    content: '';
-    @apply absolute inset-0 rounded-lg pointer-events-none;
-    background: linear-gradient(
-      135deg,
-      hsl(var(--top-highlight) / 0.15) 0%,
-      transparent 50%
-    );
-  }
+  /* Top 5 highlight removed - now using subtle background in component */
 
   /* Category badge colors */
   .badge-musica {

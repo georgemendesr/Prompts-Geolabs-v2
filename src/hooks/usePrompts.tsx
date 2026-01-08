@@ -68,13 +68,11 @@ export function usePrompts(categorySlug?: string, subcategory?: string, search?:
             color
           )
         `)
-        // Meritocratic ordering: rating DESC, usage_count DESC, legacy_score DESC
         .order('rating', { ascending: false, nullsFirst: false })
         .order('usage_count', { ascending: false })
         .order('legacy_score', { ascending: false })
         .order('last_used_at', { ascending: false, nullsFirst: true });
 
-      // Filter by category if provided
       if (categorySlug) {
         const { data: category } = await supabase
           .from('categories')
@@ -87,12 +85,10 @@ export function usePrompts(categorySlug?: string, subcategory?: string, search?:
         }
       }
 
-      // Filter by subcategory if provided
       if (subcategory) {
         query = query.eq('subcategory', subcategory);
       }
 
-      // Search in title and content
       if (search) {
         query = query.or(`title.ilike.%${search}%,content.ilike.%${search}%`);
       }
@@ -132,7 +128,6 @@ export function useSubcategories(categorySlug?: string) {
 
       if (error) throw error;
 
-      // Get unique subcategories and count
       const subcategoryCount: Record<string, number> = {};
       data?.forEach((item) => {
         if (item.subcategory) {
@@ -140,7 +135,6 @@ export function useSubcategories(categorySlug?: string) {
         }
       });
 
-      // Sort by count and return top subcategories
       return Object.entries(subcategoryCount)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 10)
@@ -155,7 +149,6 @@ export function useUpdatePromptUsage() {
 
   return useMutation({
     mutationFn: async (promptId: string) => {
-      // Get current usage count
       const { data: prompt } = await supabase
         .from('prompts')
         .select('usage_count')
@@ -170,7 +163,6 @@ export function useUpdatePromptUsage() {
             last_used_at: new Date().toISOString(),
           })
           .eq('id', promptId);
-
       }
     },
     onSuccess: () => {
@@ -192,7 +184,6 @@ export function useUpdatePromptRating() {
       if (error) throw error;
     },
     onMutate: async ({ promptId, rating }) => {
-      // Optimistic update
       await queryClient.cancelQueries({ queryKey: ['prompts'] });
       
       queryClient.setQueryData(['prompts'], (old: Prompt[] | undefined) => {
@@ -209,6 +200,61 @@ export function useUpdatePromptRating() {
     onError: () => {
       toast.error('Erro ao atualizar rating');
       queryClient.invalidateQueries({ queryKey: ['prompts'] });
+    },
+  });
+}
+
+export function useUpdatePrompt() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ promptId, updates }: { 
+      promptId: string; 
+      updates: {
+        title?: string;
+        content?: string;
+        subcategory?: string | null;
+        tags?: string[];
+      }
+    }) => {
+      const { error } = await supabase
+        .from('prompts')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', promptId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Prompt atualizado!');
+      queryClient.invalidateQueries({ queryKey: ['prompts'] });
+    },
+    onError: () => {
+      toast.error('Erro ao atualizar prompt');
+    },
+  });
+}
+
+export function useDeletePrompts() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (promptIds: string[]) => {
+      const { error } = await supabase
+        .from('prompts')
+        .delete()
+        .in('id', promptIds);
+
+      if (error) throw error;
+    },
+    onSuccess: (_, promptIds) => {
+      toast.success(`${promptIds.length} prompt(s) deletado(s)!`);
+      queryClient.invalidateQueries({ queryKey: ['prompts'] });
+    },
+    onError: () => {
+      toast.error('Erro ao deletar prompts');
     },
   });
 }
