@@ -16,7 +16,7 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
       <TooltipProvider>
-        <div className="dark">
+        <div>
           <Toaster />
           <Sonner />
           <BrowserRouter>
