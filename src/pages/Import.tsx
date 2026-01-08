@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, Loader2, CheckCircle, XCircle } from 'lucide-react';
+import { Upload, FileText, Loader2, CheckCircle, XCircle, FolderPlus } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
@@ -16,8 +16,10 @@ interface ImportResult {
   inserted: number;
   updated: number;
   errors: number;
+  groupsCreated: string[];
 }
 
+// CSV parsing - handles quoted fields correctly
 function parseCSV(text: string): string[][] {
   const rows: string[][] = [];
   let currentRow: string[] = [];
@@ -65,9 +67,19 @@ function parseCSV(text: string): string[][] {
   return rows;
 }
 
-function extractSubcategory(categoryPath: string): string {
-  const parts = categoryPath.split('>');
-  return parts[parts.length - 1].trim();
+// Parse "Grupo > Subcategoria" format
+function parseCategoryPath(categoryPath: string): { group: string; subcategory: string } {
+  const parts = categoryPath.split('>').map(p => p.trim());
+  
+  if (parts.length >= 3) {
+    const subcategory = parts[parts.length - 1];
+    const group = parts.slice(0, -1).join(' > ');
+    return { group, subcategory };
+  } else if (parts.length === 2) {
+    return { group: parts[0], subcategory: parts[1] };
+  } else {
+    return { group: parts[0] || '', subcategory: '' };
+  }
 }
 
 function generateTitle(subcategory: string, content: string): string {
@@ -101,6 +113,15 @@ function parseTags(comments: string, tags: string): string[] {
   return [...new Set(allTags)].slice(0, 10);
 }
 
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
 const Import = () => {
   const { user } = useAuth();
   const { data: categories = [] } = useCategories();
@@ -123,7 +144,7 @@ const Import = () => {
       reader.onload = (e) => {
         const text = e.target?.result as string;
         const rows = parseCSV(text);
-        setPreview(rows.slice(0, 6)); // Header + 5 rows
+        setPreview(rows.slice(0, 6));
       };
       reader.readAsText(file);
     }
@@ -147,6 +168,7 @@ const Import = () => {
       const rows = parseCSV(text);
       const headers = rows[0];
       const dataRows = rows.slice(1);
+      const total = dataRows.length;
 
       // Find column indexes
       const textIdx = headers.findIndex(h => h.toLowerCase() === 'text');
@@ -156,10 +178,60 @@ const Import = () => {
       const tagsIdx = headers.findIndex(h => h.toLowerCase() === 'tags');
       const createdIdx = headers.findIndex(h => h.toLowerCase().includes('created'));
 
+      // Get existing subcategory groups for the category
+      const { data: existingGroups } = await supabase
+        .from('subcategory_groups')
+        .select('id, name, slug')
+        .eq('category_id', selectedCategory);
+
+      const groupMap = new Map<string, string>();
+      existingGroups?.forEach(g => {
+        groupMap.set(g.name.toLowerCase(), g.id);
+      });
+
+      let maxSortOrder = existingGroups?.length || 0;
+      const groupsCreated: string[] = [];
+
+      // First pass: collect and create missing groups
+      const groupsToCreate = new Set<string>();
+      
+      for (const row of dataRows) {
+        const categoryPath = row[categoryIdx] || '';
+        if (!categoryPath.trim()) continue;
+        
+        const { group } = parseCategoryPath(categoryPath);
+        if (group && !groupMap.has(group.toLowerCase())) {
+          groupsToCreate.add(group);
+        }
+      }
+
+      // Create missing groups
+      for (const groupName of groupsToCreate) {
+        maxSortOrder++;
+        const slug = slugify(groupName);
+        
+        const { data: newGroup, error } = await supabase
+          .from('subcategory_groups')
+          .insert({
+            name: groupName,
+            slug,
+            category_id: selectedCategory,
+            sort_order: maxSortOrder,
+          })
+          .select()
+          .single();
+
+        if (!error && newGroup) {
+          groupMap.set(groupName.toLowerCase(), newGroup.id);
+          groupsCreated.push(groupName);
+        }
+      }
+
       let inserted = 0;
       let updated = 0;
       let errors = 0;
 
+      // Second pass: import prompts
       for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
         
@@ -168,18 +240,20 @@ const Import = () => {
           if (!content.trim()) continue;
 
           const categoryPath = row[categoryIdx] || '';
-          const subcategory = extractSubcategory(categoryPath);
+          const { group, subcategory } = parseCategoryPath(categoryPath);
           const rating = parseFloat(row[ratingIdx]) || 0;
           const comments = row[commentsIdx] || '';
           const tags = row[tagsIdx] || '';
           const createdAt = row[createdIdx] || new Date().toISOString();
-          
+
           const legacyId = generateLegacyId(content);
           const title = generateTitle(subcategory, content);
+          const groupId = group ? groupMap.get(group.toLowerCase()) : null;
 
           const promptData = {
             user_id: user.id,
             category_id: selectedCategory,
+            subcategory_group_id: groupId || null,
             title,
             content,
             subcategory: subcategory || null,
@@ -198,27 +272,34 @@ const Import = () => {
             .maybeSingle();
 
           if (existing) {
-            await supabase
+            const { error } = await supabase
               .from('prompts')
               .update(promptData)
               .eq('id', existing.id);
-            updated++;
+            if (!error) updated++;
+            else errors++;
           } else {
-            await supabase
+            const { error } = await supabase
               .from('prompts')
               .insert(promptData);
-            inserted++;
+            if (!error) inserted++;
+            else errors++;
           }
         } catch {
           errors++;
         }
 
-        setProgress(Math.round(((i + 1) / dataRows.length) * 100));
+        setProgress(Math.round(((i + 1) / total) * 100));
       }
 
-      setResult({ inserted, updated, errors });
+      setResult({ inserted, updated, errors, groupsCreated });
       queryClient.invalidateQueries({ queryKey: ['prompts'] });
-      toast.success(`Importação concluída! ${inserted} novos, ${updated} atualizados`);
+      queryClient.invalidateQueries({ queryKey: ['subcategory-groups'] });
+      
+      const groupMsg = groupsCreated.length > 0 
+        ? ` | ${groupsCreated.length} grupo(s) criado(s)` 
+        : '';
+      toast.success(`Importação concluída! ${inserted} novos, ${updated} atualizados${groupMsg}`);
     } catch (error) {
       toast.error('Erro durante a importação');
       console.error(error);
@@ -233,7 +314,7 @@ const Import = () => {
         <div>
           <h1 className="text-2xl font-bold">Importar Prompts</h1>
           <p className="text-muted-foreground">
-            Importe seus prompts de um arquivo CSV
+            Importe seus prompts de um arquivo CSV. Grupos serão criados automaticamente.
           </p>
         </div>
 
@@ -255,7 +336,7 @@ const Import = () => {
                 <div>
                   <p className="font-medium">Arraste um arquivo CSV ou clique para selecionar</p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Colunas: Text, Category, Rating, Comments, Tags, Created At
+                    Formato: Text, Category (Grupo {'>'} Subcategoria), Rating, Comments, Tags
                   </p>
                 </div>
               )}
@@ -272,7 +353,7 @@ const Import = () => {
                 {file.name}
               </CardTitle>
               <CardDescription>
-                {preview.length > 1 ? `${preview.length - 1} linhas de dados` : 'Nenhum dado'}
+                {preview.length > 1 ? `${preview.length - 1} linhas de prévia` : 'Nenhum dado'}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -306,7 +387,7 @@ const Import = () => {
 
               {/* Category Select */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">Categoria padrão</label>
+                <label className="text-sm font-medium">Categoria principal</label>
                 <Select value={selectedCategory} onValueChange={setSelectedCategory}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione uma categoria" />
@@ -319,6 +400,9 @@ const Import = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">
+                  Grupos serão extraídos automaticamente da coluna Category
+                </p>
               </div>
 
               {/* Progress */}
@@ -331,20 +415,30 @@ const Import = () => {
 
               {/* Result */}
               {result && (
-                <div className="flex items-center gap-4 text-sm">
-                  <span className="flex items-center gap-1 text-green-500">
-                    <CheckCircle className="h-4 w-4" />
-                    {result.inserted} novos
-                  </span>
-                  <span className="flex items-center gap-1 text-blue-500">
-                    <CheckCircle className="h-4 w-4" />
-                    {result.updated} atualizados
-                  </span>
-                  {result.errors > 0 && (
-                    <span className="flex items-center gap-1 text-red-500">
-                      <XCircle className="h-4 w-4" />
-                      {result.errors} erros
+                <div className="space-y-2">
+                  <div className="flex items-center gap-4 text-sm">
+                    <span className="flex items-center gap-1 text-green-500">
+                      <CheckCircle className="h-4 w-4" />
+                      {result.inserted} novos
                     </span>
+                    <span className="flex items-center gap-1 text-blue-500">
+                      <CheckCircle className="h-4 w-4" />
+                      {result.updated} atualizados
+                    </span>
+                    {result.errors > 0 && (
+                      <span className="flex items-center gap-1 text-red-500">
+                        <XCircle className="h-4 w-4" />
+                        {result.errors} erros
+                      </span>
+                    )}
+                  </div>
+                  {result.groupsCreated.length > 0 && (
+                    <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <FolderPlus className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                      <span>
+                        Grupos criados: {result.groupsCreated.join(', ')}
+                      </span>
+                    </div>
                   )}
                 </div>
               )}

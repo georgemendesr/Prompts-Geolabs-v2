@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 
+// CSV parsing - handles quoted fields correctly
 function parseCSV(text: string): string[][] {
   const rows: string[][] = [];
   let currentRow: string[] = [];
@@ -47,9 +48,25 @@ function parseCSV(text: string): string[][] {
   return rows;
 }
 
-function extractSubcategory(categoryPath: string): string {
-  const parts = categoryPath.split('>');
-  return parts[parts.length - 1].trim();
+// Parse "Grupo > Subcategoria" format
+// Example: "Selecionados > Reggae Master" => { group: "Selecionados", subcategory: "Reggae Master" }
+// Example: "METATAGS > Refrão - Intensidade" => { group: "METATAGS", subcategory: "Refrão - Intensidade" }
+// Example: "Projetos > Som do Coração > LO-FI" => { group: "Projetos > Som do Coração", subcategory: "LO-FI" }
+function parseCategoryPath(categoryPath: string): { group: string; subcategory: string } {
+  const parts = categoryPath.split('>').map(p => p.trim());
+  
+  if (parts.length >= 3) {
+    // "Projetos > Som do Coração > LO-FI" => group="Projetos > Som do Coração", subcategory="LO-FI"
+    const subcategory = parts[parts.length - 1];
+    const group = parts.slice(0, -1).join(' > ');
+    return { group, subcategory };
+  } else if (parts.length === 2) {
+    // "Selecionados > Reggae Master" => group="Selecionados", subcategory="Reggae Master"
+    return { group: parts[0], subcategory: parts[1] };
+  } else {
+    // Single value like "Diversos"
+    return { group: parts[0] || '', subcategory: '' };
+  }
 }
 
 function generateTitle(subcategory: string, content: string): string {
@@ -83,46 +100,51 @@ function parseTags(comments: string, tags: string): string[] {
   return [...new Set(allTags)].slice(0, 10);
 }
 
-// Map CSV categories to our master categories
-function mapToMasterCategory(categoryPath: string): string {
-  const lowerPath = categoryPath.toLowerCase();
-  
-  if (lowerPath.includes('reggae') || lowerPath.includes('music') || lowerPath.includes('selecionados')) {
-    return 'musica';
-  }
-  if (lowerPath.includes('video') || lowerPath.includes('vídeo')) {
-    return 'video';
-  }
-  if (lowerPath.includes('imagem') || lowerPath.includes('image')) {
-    return 'imagem';
-  }
-  // Default to texto
-  return 'musica'; // Based on the CSV content, most are music-related
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove accents
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }
 
-export async function importPromptsFromCSV(userId: string): Promise<{ inserted: number; skipped: number }> {
+interface ImportProgress {
+  current: number;
+  total: number;
+  inserted: number;
+  updated: number;
+  errors: number;
+  groupsCreated: string[];
+}
+
+export async function importPromptsFromCSV(
+  userId: string,
+  categoryId: string, // The master category to use (e.g., "Música" id)
+  onProgress?: (progress: ImportProgress) => void
+): Promise<ImportProgress> {
+  const progress: ImportProgress = {
+    current: 0,
+    total: 0,
+    inserted: 0,
+    updated: 0,
+    errors: 0,
+    groupsCreated: [],
+  };
+
   try {
-    // Check if user already has prompts (skip if already imported)
-    const { count } = await supabase
-      .from('prompts')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', userId);
-
-    if (count && count > 0) {
-      return { inserted: 0, skipped: count };
-    }
-
     // Fetch the CSV file
     const response = await fetch('/prompts_export_2026-01-08.csv');
     if (!response.ok) {
       console.error('CSV file not found');
-      return { inserted: 0, skipped: 0 };
+      return progress;
     }
 
     const text = await response.text();
     const rows = parseCSV(text);
     const headers = rows[0];
     const dataRows = rows.slice(1);
+    progress.total = dataRows.length;
 
     // Find column indexes
     const textIdx = headers.findIndex(h => h.toLowerCase() === 'text');
@@ -132,61 +154,133 @@ export async function importPromptsFromCSV(userId: string): Promise<{ inserted: 
     const tagsIdx = headers.findIndex(h => h.toLowerCase() === 'tags');
     const createdIdx = headers.findIndex(h => h.toLowerCase().includes('created'));
 
-    // Get categories
-    const { data: categories } = await supabase
-      .from('categories')
-      .select('id, slug');
+    // Get existing subcategory groups for the category
+    const { data: existingGroups } = await supabase
+      .from('subcategory_groups')
+      .select('id, name, slug')
+      .eq('category_id', categoryId);
 
-    const categoryMap = new Map(categories?.map(c => [c.slug, c.id]) || []);
+    // Map: group name -> group id
+    const groupMap = new Map<string, string>();
+    existingGroups?.forEach(g => {
+      groupMap.set(g.name.toLowerCase(), g.id);
+    });
 
-    const promptsToInsert = [];
+    // Get max sort_order for new groups
+    let maxSortOrder = existingGroups?.length || 0;
 
+    // First pass: collect unique groups that need to be created
+    const groupsToCreate = new Set<string>();
+    
     for (const row of dataRows) {
-      const content = row[textIdx] || '';
-      if (!content.trim()) continue;
-
       const categoryPath = row[categoryIdx] || '';
-      const subcategory = extractSubcategory(categoryPath);
-      const rating = parseFloat(row[ratingIdx]) || 0;
-      const comments = row[commentsIdx] || '';
-      const tags = row[tagsIdx] || '';
-      const createdAt = row[createdIdx] || new Date().toISOString();
+      if (!categoryPath.trim()) continue;
       
-      const masterCategorySlug = mapToMasterCategory(categoryPath);
-      const categoryId = categoryMap.get(masterCategorySlug);
-      
-      const legacyId = generateLegacyId(content);
-      const title = generateTitle(subcategory, content);
-
-      promptsToInsert.push({
-        user_id: userId,
-        category_id: categoryId || null,
-        title,
-        content,
-        subcategory: subcategory || null,
-        legacy_score: rating,
-        rating: Math.max(0, Math.min(5, rating)), // Clamp to 0-5
-        tags: parseTags(comments, tags),
-        legacy_id: legacyId,
-        created_at: createdAt,
-      });
-    }
-
-    // Insert in batches of 100
-    let inserted = 0;
-    for (let i = 0; i < promptsToInsert.length; i += 100) {
-      const batch = promptsToInsert.slice(i, i + 100);
-      const { error } = await supabase.from('prompts').insert(batch);
-      if (!error) {
-        inserted += batch.length;
-      } else {
-        console.error('Batch insert error:', error);
+      const { group } = parseCategoryPath(categoryPath);
+      if (group && !groupMap.has(group.toLowerCase())) {
+        groupsToCreate.add(group);
       }
     }
 
-    return { inserted, skipped: 0 };
+    // Create missing groups
+    for (const groupName of groupsToCreate) {
+      maxSortOrder++;
+      const slug = slugify(groupName);
+      
+      const { data: newGroup, error } = await supabase
+        .from('subcategory_groups')
+        .insert({
+          name: groupName,
+          slug,
+          category_id: categoryId,
+          sort_order: maxSortOrder,
+        })
+        .select()
+        .single();
+
+      if (!error && newGroup) {
+        groupMap.set(groupName.toLowerCase(), newGroup.id);
+        progress.groupsCreated.push(groupName);
+      }
+    }
+
+    // Second pass: import prompts
+    for (let i = 0; i < dataRows.length; i++) {
+      const row = dataRows[i];
+      progress.current = i + 1;
+      
+      try {
+        const content = row[textIdx] || '';
+        if (!content.trim()) continue;
+
+        const categoryPath = row[categoryIdx] || '';
+        const { group, subcategory } = parseCategoryPath(categoryPath);
+        const rating = parseFloat(row[ratingIdx]) || 0;
+        const comments = row[commentsIdx] || '';
+        const tags = row[tagsIdx] || '';
+        const createdAt = row[createdIdx] || new Date().toISOString();
+
+        const legacyId = generateLegacyId(content);
+        const title = generateTitle(subcategory, content);
+        const groupId = group ? groupMap.get(group.toLowerCase()) : null;
+
+        const promptData = {
+          user_id: userId,
+          category_id: categoryId,
+          subcategory_group_id: groupId || null,
+          title,
+          content,
+          subcategory: subcategory || null,
+          legacy_score: rating,
+          rating: Math.max(0, Math.min(5, rating)), // Clamp to 0-5
+          tags: parseTags(comments, tags),
+          legacy_id: legacyId,
+          created_at: createdAt,
+        };
+
+        // Check if exists by legacy_id
+        const { data: existing } = await supabase
+          .from('prompts')
+          .select('id')
+          .eq('legacy_id', legacyId)
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (existing) {
+          const { error } = await supabase
+            .from('prompts')
+            .update(promptData)
+            .eq('id', existing.id);
+          
+          if (!error) {
+            progress.updated++;
+          } else {
+            progress.errors++;
+          }
+        } else {
+          const { error } = await supabase
+            .from('prompts')
+            .insert(promptData);
+          
+          if (!error) {
+            progress.inserted++;
+          } else {
+            progress.errors++;
+          }
+        }
+      } catch {
+        progress.errors++;
+      }
+
+      // Report progress every 10 items or at the end
+      if (onProgress && (i % 10 === 0 || i === dataRows.length - 1)) {
+        onProgress({ ...progress });
+      }
+    }
+
+    return progress;
   } catch (error) {
     console.error('Import error:', error);
-    return { inserted: 0, skipped: 0 };
+    return progress;
   }
 }
