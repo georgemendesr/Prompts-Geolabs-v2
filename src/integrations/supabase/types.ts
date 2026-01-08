@@ -103,6 +103,7 @@ export type Database = {
           legacy_score: number | null
           rating: number | null
           subcategory: string | null
+          subcategory_group_id: string | null
           tags: string[] | null
           title: string
           updated_at: string
@@ -119,6 +120,7 @@ export type Database = {
           legacy_score?: number | null
           rating?: number | null
           subcategory?: string | null
+          subcategory_group_id?: string | null
           tags?: string[] | null
           title: string
           updated_at?: string
@@ -135,6 +137,7 @@ export type Database = {
           legacy_score?: number | null
           rating?: number | null
           subcategory?: string | null
+          subcategory_group_id?: string | null
           tags?: string[] | null
           title?: string
           updated_at?: string
@@ -144,6 +147,48 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "prompts_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prompts_subcategory_group_id_fkey"
+            columns: ["subcategory_group_id"]
+            isOneToOne: false
+            referencedRelation: "subcategory_groups"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subcategory_groups: {
+        Row: {
+          category_id: string | null
+          created_at: string
+          id: string
+          name: string
+          slug: string
+          sort_order: number | null
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          slug: string
+          sort_order?: number | null
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          slug?: string
+          sort_order?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subcategory_groups_category_id_fkey"
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
