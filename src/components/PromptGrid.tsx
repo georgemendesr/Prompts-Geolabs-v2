@@ -94,6 +94,8 @@ export function PromptGrid() {
     setSelectionMode(!selectionMode);
   };
 
+  const showPrompts = currentCategory && (subcategoryGroups.length === 0 || selectedSubcategoryGroup);
+
   return (
     <div className="space-y-6">
       {/* Category Tabs (Level 1) */}
@@ -128,11 +130,13 @@ export function PromptGrid() {
       )}
 
       {/* Section Header with Group Info */}
-      {selectedSubcategoryGroup && (
+      {showPrompts && (
         <div className="flex flex-col gap-4 p-4 bg-card rounded-lg border">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-semibold">{selectedSubcategoryGroup.name}</h2>
+              <h2 className="text-xl font-semibold">
+                {selectedSubcategoryGroup?.name || currentCategory?.name}
+              </h2>
               <p className="text-sm text-muted-foreground">{prompts.length} prompts</p>
             </div>
           </div>
@@ -188,7 +192,7 @@ export function PromptGrid() {
       )}
 
       {/* Loading State */}
-      {loadingPrompts && selectedSubcategoryGroup && (
+      {loadingPrompts && showPrompts && (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
@@ -203,7 +207,7 @@ export function PromptGrid() {
         </div>
       )}
 
-      {/* Empty State - No subcategory group selected */}
+      {/* Empty State - No subcategory group selected (only if there are groups) */}
       {currentCategory && !selectedSubcategoryGroup && subcategoryGroups.length > 0 && (
         <div className="text-center py-12">
           <p className="text-muted-foreground">
@@ -213,7 +217,7 @@ export function PromptGrid() {
       )}
 
       {/* Empty State - No prompts */}
-      {selectedSubcategoryGroup && !loadingPrompts && prompts.length === 0 && (
+      {showPrompts && !loadingPrompts && prompts.length === 0 && (
         <div className="text-center py-12">
           <p className="text-muted-foreground">
             {searchQuery
@@ -224,7 +228,7 @@ export function PromptGrid() {
       )}
 
       {/* Prompt Grid */}
-      {selectedSubcategoryGroup && !loadingPrompts && prompts.length > 0 && (
+      {showPrompts && !loadingPrompts && prompts.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {prompts.map((prompt, index) => (
             <PromptCard
