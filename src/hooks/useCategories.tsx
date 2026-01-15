@@ -133,9 +133,12 @@ export function useCreateSubcategoryGroup() {
 
   return useMutation({
     mutationFn: async (data: { name: string; slug: string; category_id: string; sort_order?: number }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
       const { error } = await supabase
         .from('subcategory_groups')
-        .insert(data);
+        .insert({ ...data, created_by: user.id });
 
       if (error) throw error;
     },
