@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Import from "./pages/Import";
 import Dashboard from "./pages/Dashboard";
 import Settings from "./pages/Settings";
+import Projects from "./pages/Projects";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -23,6 +24,7 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/import" element={<Import />} />
+              <Route path="/projects" element={<Projects />} />
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="*" element={<NotFound />} />
