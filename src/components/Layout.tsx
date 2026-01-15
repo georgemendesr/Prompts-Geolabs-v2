@@ -31,7 +31,7 @@ export function Layout({ children }: LayoutProps) {
           <Link to="/" className="flex items-center gap-2">
             <img src={logoGeolabs} alt="Geolabs" className="h-10 w-auto" />
             <span className="font-semibold text-lg hidden sm:inline text-foreground">
-              Prompts
+              Super Prompts
             </span>
           </Link>
 

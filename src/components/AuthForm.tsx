@@ -41,7 +41,7 @@ export function AuthForm() {
           <div className="flex justify-center mb-4">
             <img src={logoGeolabs} alt="Geolabs" className="h-20 w-auto" />
           </div>
-          <CardTitle className="text-2xl font-bold">Geolabs Prompts</CardTitle>
+          <CardTitle className="text-2xl font-bold">Geolabs - Super Prompts</CardTitle>
           <CardDescription>
             {isLogin ? 'Entre na sua conta' : 'Crie sua conta'}
           </CardDescription>
