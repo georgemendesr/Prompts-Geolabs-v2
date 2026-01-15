@@ -18,7 +18,7 @@ const categoryIcons: Record<string, React.ReactNode> = {
 export function CategoryPills({ categories, selectedCategory, onSelect }: CategoryPillsProps) {
   return (
     <div className="border-b border-border">
-      <div className="flex overflow-x-auto">
+      <div className="flex overflow-x-auto scrollbar-hide">
         {categories.map((category) => (
           <button
             key={category.id}
