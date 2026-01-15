@@ -3,19 +3,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { LogOut, User } from 'lucide-react';
+import { CategoryManager } from '@/components/categories/CategoryManager';
 
 const Settings = () => {
   const { user, signOut } = useAuth();
 
   return (
     <Layout>
-      <div className="max-w-2xl mx-auto space-y-6">
+      <div className="max-w-4xl mx-auto space-y-6">
         <div>
           <h1 className="text-2xl font-bold">Configurações</h1>
           <p className="text-muted-foreground">
-            Gerencie sua conta e preferências
+            Gerencie sua conta, categorias e preferências
           </p>
         </div>
+
+        {/* Category Manager */}
+        <CategoryManager />
 
         {/* Account Info */}
         <Card>
