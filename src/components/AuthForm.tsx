@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import logoGeolabs from '@/assets/logo-geolabs.png';
 
 export function AuthForm() {
   const [isLogin, setIsLogin] = useState(true);
@@ -38,11 +39,9 @@ export function AuthForm() {
       <Card className="w-full max-w-md border-border/50">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center">
-              <span className="text-2xl font-bold text-primary-foreground">SP</span>
-            </div>
+            <img src={logoGeolabs} alt="Geolabs" className="h-20 w-auto" />
           </div>
-          <CardTitle className="text-2xl font-bold">Super Prompts</CardTitle>
+          <CardTitle className="text-2xl font-bold">Geolabs Prompts</CardTitle>
           <CardDescription>
             {isLogin ? 'Entre na sua conta' : 'Crie sua conta'}
           </CardDescription>
