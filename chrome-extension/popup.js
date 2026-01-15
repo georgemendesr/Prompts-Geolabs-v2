@@ -169,37 +169,62 @@ async function loadPrompts() {
   renderPrompts(response);
 }
 
-// Render prompts
+// Render prompts grouped by subcategory
 function renderPrompts(prompts) {
   if (prompts.length === 0) {
     promptsList.innerHTML = '<p class="empty-message">Nenhum prompt encontrado</p>';
     return;
   }
   
-  promptsList.innerHTML = prompts.map(prompt => {
-    const isFavorite = favorites.has(prompt.id);
-    return `
-    <div class="prompt-card" data-id="${prompt.id}">
-      <div class="prompt-header">
-        <h3 class="prompt-title">${escapeHtml(prompt.title)}</h3>
-        <button class="btn-favorite ${isFavorite ? 'active' : ''}" data-id="${prompt.id}" title="${isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}">
-          ${isFavorite ? '★' : '☆'}
-        </button>
-        ${prompt.categories ? `
-          <span class="prompt-category" style="background: ${prompt.categories.color || '#6366f1'}20; color: ${prompt.categories.color || '#6366f1'}">
-            ${prompt.categories.icon || ''} ${prompt.categories.name}
-          </span>
-        ` : ''}
+  // Group prompts by subcategory_groups
+  const grouped = {};
+  const ungrouped = [];
+  
+  prompts.forEach(prompt => {
+    if (prompt.subcategory_groups && prompt.subcategory_groups.name) {
+      const groupName = prompt.subcategory_groups.name;
+      if (!grouped[groupName]) {
+        grouped[groupName] = [];
+      }
+      grouped[groupName].push(prompt);
+    } else if (prompt.subcategory) {
+      const subName = prompt.subcategory;
+      if (!grouped[subName]) {
+        grouped[subName] = [];
+      }
+      grouped[subName].push(prompt);
+    } else {
+      ungrouped.push(prompt);
+    }
+  });
+  
+  let html = '';
+  
+  // Render grouped prompts
+  Object.keys(grouped).sort().forEach(groupName => {
+    html += `
+      <div class="subcategory-section">
+        <div class="subcategory-header">${escapeHtml(groupName)}</div>
+        ${grouped[groupName].map(prompt => renderPromptCard(prompt)).join('')}
       </div>
-      <p class="prompt-content">${escapeHtml(truncate(prompt.content, 100))}</p>
-      <div class="prompt-actions">
-        <button class="btn-copy" data-content="${escapeAttr(prompt.content)}" data-id="${prompt.id}">
-          📋 Copiar
-        </button>
-        ${prompt.rating ? `<span class="prompt-rating">⭐ ${prompt.rating}</span>` : ''}
-      </div>
-    </div>
-  `}).join('');
+    `;
+  });
+  
+  // Render ungrouped prompts
+  if (ungrouped.length > 0) {
+    if (Object.keys(grouped).length > 0) {
+      html += `
+        <div class="subcategory-section">
+          <div class="subcategory-header">Outros</div>
+          ${ungrouped.map(prompt => renderPromptCard(prompt)).join('')}
+        </div>
+      `;
+    } else {
+      html += ungrouped.map(prompt => renderPromptCard(prompt)).join('');
+    }
+  }
+  
+  promptsList.innerHTML = html;
   
   // Add favorite handlers
   document.querySelectorAll('.btn-favorite').forEach(btn => {
@@ -342,4 +367,31 @@ function escapeAttr(text) {
 function truncate(text, maxLength) {
   if (text.length <= maxLength) return text;
   return text.substring(0, maxLength) + '...';
+}
+
+// Render a single prompt card
+function renderPromptCard(prompt) {
+  const isFavorite = favorites.has(prompt.id);
+  return `
+    <div class="prompt-card" data-id="${prompt.id}">
+      <div class="prompt-header">
+        <h3 class="prompt-title">${escapeHtml(prompt.title)}</h3>
+        <button class="btn-favorite ${isFavorite ? 'active' : ''}" data-id="${prompt.id}" title="${isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}">
+          ${isFavorite ? '★' : '☆'}
+        </button>
+        ${prompt.categories ? `
+          <span class="prompt-category" style="background: ${prompt.categories.color || '#6366f1'}20; color: ${prompt.categories.color || '#6366f1'}">
+            ${prompt.categories.icon || ''} ${prompt.categories.name}
+          </span>
+        ` : ''}
+      </div>
+      <p class="prompt-content">${escapeHtml(truncate(prompt.content, 100))}</p>
+      <div class="prompt-actions">
+        <button class="btn-copy" data-content="${escapeAttr(prompt.content)}" data-id="${prompt.id}">
+          📋 Copiar
+        </button>
+        ${prompt.rating ? `<span class="prompt-rating">⭐ ${prompt.rating}</span>` : ''}
+      </div>
+    </div>
+  `;
 }

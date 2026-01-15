@@ -173,7 +173,7 @@ async function loadPrompts(search = '', categoryId = null) {
   renderPrompts(prompts);
 }
 
-// Render prompts
+// Render prompts grouped by subcategory
 function renderPrompts(prompts) {
   if (prompts.length === 0) {
     promptsList.innerHTML = showFavoritesOnly 
@@ -182,37 +182,62 @@ function renderPrompts(prompts) {
     return;
   }
   
-  promptsList.innerHTML = prompts.map(prompt => {
-    const isFavorite = favorites.has(prompt.id);
-    return `
-    <div class="prompt-card ${expandedPrompt === prompt.id ? 'prompt-expanded' : ''}" data-id="${prompt.id}">
-      <div class="prompt-header">
-        <h3 class="prompt-title">${escapeHtml(prompt.title)}</h3>
-        <button class="btn-favorite ${isFavorite ? 'active' : ''}" data-id="${prompt.id}" title="${isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}">
-          ${isFavorite ? '★' : '☆'}
-        </button>
-        ${prompt.categories ? `
-          <span class="prompt-category" style="background: ${prompt.categories.color || '#6366f1'}20; color: ${prompt.categories.color || '#6366f1'}">
-            ${prompt.categories.icon || ''} ${prompt.categories.name}
-          </span>
-        ` : ''}
-      </div>
-      ${expandedPrompt === prompt.id ? `
-        <div class="prompt-full-content">${escapeHtml(prompt.content)}</div>
-      ` : `
-        <p class="prompt-content">${escapeHtml(truncate(prompt.content, 120))}</p>
-      `}
-      <div class="prompt-actions">
-        <button class="btn-copy" data-content="${escapeAttr(prompt.content)}" data-id="${prompt.id}">
-          📋 Copiar
-        </button>
-        <div class="prompt-meta">
-          ${prompt.rating ? `<span>⭐ ${prompt.rating}</span>` : ''}
-          ${prompt.usage_count ? `<span>📊 ${prompt.usage_count}</span>` : ''}
+  // Group prompts by subcategory_groups
+  const grouped = {};
+  const ungrouped = [];
+  
+  prompts.forEach(prompt => {
+    if (prompt.subcategory_groups && prompt.subcategory_groups.name) {
+      const groupName = prompt.subcategory_groups.name;
+      if (!grouped[groupName]) {
+        grouped[groupName] = [];
+      }
+      grouped[groupName].push(prompt);
+    } else if (prompt.subcategory) {
+      const subName = prompt.subcategory;
+      if (!grouped[subName]) {
+        grouped[subName] = [];
+      }
+      grouped[subName].push(prompt);
+    } else {
+      ungrouped.push(prompt);
+    }
+  });
+  
+  let html = '';
+  
+  // Render grouped prompts
+  Object.keys(grouped).sort().forEach(groupName => {
+    const count = grouped[groupName].length;
+    html += `
+      <div class="subcategory-section">
+        <div class="subcategory-header">
+          ${escapeHtml(groupName)}
+          <span class="count">${count}</span>
         </div>
+        ${grouped[groupName].map(prompt => renderPromptCard(prompt)).join('')}
       </div>
-    </div>
-  `}).join('');
+    `;
+  });
+  
+  // Render ungrouped prompts
+  if (ungrouped.length > 0) {
+    if (Object.keys(grouped).length > 0) {
+      html += `
+        <div class="subcategory-section">
+          <div class="subcategory-header">
+            Outros
+            <span class="count">${ungrouped.length}</span>
+          </div>
+          ${ungrouped.map(prompt => renderPromptCard(prompt)).join('')}
+        </div>
+      `;
+    } else {
+      html += ungrouped.map(prompt => renderPromptCard(prompt)).join('');
+    }
+  }
+  
+  promptsList.innerHTML = html;
   
   // Add click handlers for expanding
   document.querySelectorAll('.prompt-card').forEach(card => {
@@ -438,4 +463,38 @@ function escapeAttr(text) {
 function truncate(text, maxLength) {
   if (text.length <= maxLength) return text;
   return text.substring(0, maxLength) + '...';
+}
+
+// Render a single prompt card
+function renderPromptCard(prompt) {
+  const isFavorite = favorites.has(prompt.id);
+  return `
+    <div class="prompt-card ${expandedPrompt === prompt.id ? 'prompt-expanded' : ''}" data-id="${prompt.id}">
+      <div class="prompt-header">
+        <h3 class="prompt-title">${escapeHtml(prompt.title)}</h3>
+        <button class="btn-favorite ${isFavorite ? 'active' : ''}" data-id="${prompt.id}" title="${isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}">
+          ${isFavorite ? '★' : '☆'}
+        </button>
+        ${prompt.categories ? `
+          <span class="prompt-category" style="background: ${prompt.categories.color || '#6366f1'}20; color: ${prompt.categories.color || '#6366f1'}">
+            ${prompt.categories.icon || ''} ${prompt.categories.name}
+          </span>
+        ` : ''}
+      </div>
+      ${expandedPrompt === prompt.id ? `
+        <div class="prompt-full-content">${escapeHtml(prompt.content)}</div>
+      ` : `
+        <p class="prompt-content">${escapeHtml(truncate(prompt.content, 120))}</p>
+      `}
+      <div class="prompt-actions">
+        <button class="btn-copy" data-content="${escapeAttr(prompt.content)}" data-id="${prompt.id}">
+          📋 Copiar
+        </button>
+        <div class="prompt-meta">
+          ${prompt.rating ? `<span>⭐ ${prompt.rating}</span>` : ''}
+          ${prompt.usage_count ? `<span>📊 ${prompt.usage_count}</span>` : ''}
+        </div>
+      </div>
+    </div>
+  `;
 }
