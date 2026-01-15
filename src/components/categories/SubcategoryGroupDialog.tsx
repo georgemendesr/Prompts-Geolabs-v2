@@ -10,7 +10,7 @@ interface SubcategoryGroupDialogProps {
   onOpenChange: (open: boolean) => void;
   group?: SubcategoryGroup | null;
   categoryId: string;
-  onSave: (data: { name: string; slug: string; category_id: string; sort_order?: number }) => void;
+  onSave: (data: { name: string; slug: string; category_id: string }) => void;
   isLoading?: boolean;
 }
 
@@ -26,17 +26,14 @@ const generateSlug = (name: string) => {
 export function SubcategoryGroupDialog({ open, onOpenChange, group, categoryId, onSave, isLoading }: SubcategoryGroupDialogProps) {
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
-  const [sortOrder, setSortOrder] = useState<number | ''>('');
 
   useEffect(() => {
     if (group) {
       setName(group.name);
       setSlug(group.slug);
-      setSortOrder(group.sort_order ?? '');
     } else {
       setName('');
       setSlug('');
-      setSortOrder('');
     }
   }, [group, open]);
 
@@ -53,15 +50,14 @@ export function SubcategoryGroupDialog({ open, onOpenChange, group, categoryId, 
       name,
       slug,
       category_id: categoryId,
-      sort_order: sortOrder !== '' ? Number(sortOrder) : undefined,
     });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[350px]">
         <DialogHeader>
-          <DialogTitle>{group ? 'Editar Grupo' : 'Novo Grupo de Subcategoria'}</DialogTitle>
+          <DialogTitle>{group ? 'Editar Subcategoria' : 'Nova Subcategoria'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -70,35 +66,16 @@ export function SubcategoryGroupDialog({ open, onOpenChange, group, categoryId, 
               id="name"
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
-              placeholder="Ex: Estilos Musicais"
+              placeholder="Ex: Rock, Pop, Jazz..."
               required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="slug">Slug</Label>
-            <Input
-              id="slug"
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              placeholder="Ex: estilos-musicais"
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="sortOrder">Ordem</Label>
-            <Input
-              id="sortOrder"
-              type="number"
-              value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value ? Number(e.target.value) : '')}
-              placeholder="Ex: 1"
+              autoFocus
             />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button type="submit" disabled={isLoading || !name.trim()}>
               {isLoading ? 'Salvando...' : 'Salvar'}
             </Button>
           </DialogFooter>
