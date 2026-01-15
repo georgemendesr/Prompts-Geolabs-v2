@@ -10,6 +10,7 @@ import { PromptDetailDrawer } from './PromptDetailDrawer';
 import { PromptEditDialog } from './PromptEditDialog';
 import { PromptCreateDialog } from './PromptCreateDialog';
 import { CategoryDialog } from './categories/CategoryDialog';
+import { SubcategoryGroupDialog } from './categories/SubcategoryGroupDialog';
 import { 
   usePrompts, 
   useCategories, 
@@ -20,7 +21,7 @@ import {
   Category,
   SubcategoryGroup 
 } from '@/hooks/usePrompts';
-import { useCreateCategory } from '@/hooks/useCategories';
+import { useCreateCategory, useCreateSubcategoryGroup } from '@/hooks/useCategories';
 import { useDebounce } from '@/hooks/useDebounce';
 
 export function PromptGrid() {
@@ -34,6 +35,7 @@ export function PromptGrid() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [subcategoryDialogOpen, setSubcategoryDialogOpen] = useState(false);
   
   const debouncedSearch = useDebounce(searchQuery, 300);
   
@@ -55,6 +57,7 @@ export function PromptGrid() {
   );
   const deletePrompts = useDeletePrompts();
   const createCategory = useCreateCategory();
+  const createSubcategoryGroup = useCreateSubcategoryGroup();
 
   const handleCategorySelect = (slug: string | null) => {
     setSelectedCategory(slug);
@@ -131,6 +134,14 @@ export function PromptGrid() {
           >
             <Plus className="h-4 w-4" />
             Novo Prompt
+          </Button>
+          <Button 
+            variant="outline"
+            onClick={() => setSubcategoryDialogOpen(true)}
+            className="gap-2"
+          >
+            <FolderPlus className="h-4 w-4" />
+            Nova Subcategoria
           </Button>
         </div>
       )}
@@ -293,6 +304,21 @@ export function PromptGrid() {
         }}
         isLoading={createCategory.isPending}
       />
+
+      {/* Subcategory Group Create Dialog */}
+      {currentCategory && (
+        <SubcategoryGroupDialog
+          open={subcategoryDialogOpen}
+          onOpenChange={setSubcategoryDialogOpen}
+          categoryId={currentCategory.id}
+          onSave={(data) => {
+            createSubcategoryGroup.mutate(data, {
+              onSuccess: () => setSubcategoryDialogOpen(false)
+            });
+          }}
+          isLoading={createSubcategoryGroup.isPending}
+        />
+      )}
     </div>
   );
 }
