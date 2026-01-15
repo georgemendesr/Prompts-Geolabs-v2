@@ -11,7 +11,19 @@
     <!-- Login View -->
     <div id="login-view" class="view hidden">
       <div class="header">
-        <h1>🎯 Prompt Manager</h1>
+        <div class="logo">
+          <svg width="36" height="36" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#8B5CF6"/>
+                <stop offset="100%" style="stop-color:#4F46E5"/>
+              </linearGradient>
+            </defs>
+            <rect width="128" height="128" rx="24" fill="url(#logoGrad)"/>
+            <text x="64" y="82" font-family="Arial, sans-serif" font-size="56" font-weight="bold" fill="white" text-anchor="middle">GL</text>
+          </svg>
+          <span>GeoLabs Prompts</span>
+        </div>
       </div>
       <form id="login-form" class="login-form">
         <input type="email" id="email" placeholder="Email" required>
@@ -24,7 +36,19 @@
     <!-- Main View -->
     <div id="main-view" class="view hidden">
       <div class="header">
-        <h1>🎯 Prompt Manager</h1>
+        <div class="logo-small">
+          <svg width="28" height="28" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="logoGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#8B5CF6"/>
+                <stop offset="100%" style="stop-color:#4F46E5"/>
+              </linearGradient>
+            </defs>
+            <rect width="128" height="128" rx="24" fill="url(#logoGrad2)"/>
+            <text x="64" y="82" font-family="Arial, sans-serif" font-size="56" font-weight="bold" fill="white" text-anchor="middle">GL</text>
+          </svg>
+          <span>GeoLabs</span>
+        </div>
         <div class="header-actions">
           <button id="new-prompt-btn" class="btn-icon" title="Novo Prompt">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
