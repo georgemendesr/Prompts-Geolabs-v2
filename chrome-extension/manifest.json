@@ -15,9 +15,9 @@
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
-      "16": "icons/icon16.svg",
-      "48": "icons/icon48.svg",
-      "128": "icons/icon128.svg"
+      "16": "icons/logo-geolabs.png",
+      "48": "icons/logo-geolabs.png",
+      "128": "icons/logo-geolabs.png"
     }
   },
   "side_panel": {
