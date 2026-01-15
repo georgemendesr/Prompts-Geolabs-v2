@@ -95,6 +95,69 @@ export type Database = {
         }
         Relationships: []
       }
+      project_prompts: {
+        Row: {
+          added_at: string
+          id: string
+          project_id: string
+          prompt_id: string
+        }
+        Insert: {
+          added_at?: string
+          id?: string
+          project_id: string
+          prompt_id: string
+        }
+        Update: {
+          added_at?: string
+          id?: string
+          project_id?: string
+          prompt_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_prompts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_prompts_prompt_id_fkey"
+            columns: ["prompt_id"]
+            isOneToOne: false
+            referencedRelation: "prompts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       prompts: {
         Row: {
           category_id: string | null

@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { LogOut, Library, Upload, Settings, BarChart3 } from 'lucide-react';
+import { LogOut, Library, Upload, Settings, BarChart3, FolderOpen } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
@@ -11,6 +11,7 @@ interface LayoutProps {
 
 const navItems = [
   { href: '/', icon: Library, label: 'Biblioteca' },
+  { href: '/projects', icon: FolderOpen, label: 'Projetos' },
   { href: '/import', icon: Upload, label: 'Importar' },
   { href: '/dashboard', icon: BarChart3, label: 'Dashboard' },
   { href: '/settings', icon: Settings, label: 'Config' },
