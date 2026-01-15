@@ -22,10 +22,10 @@ Extensão Chrome para buscar e salvar prompts diretamente do navegador.
 
 ### Ícones
 
-Para ícones personalizados, crie a pasta `icons/` com:
-- `icon16.png` (16x16)
-- `icon48.png` (48x48)
-- `icon128.png` (128x128)
+Os ícones SVG GeoLabs já estão incluídos na pasta `icons/`:
+- `icon16.svg` - Ícone pequeno (toolbar)
+- `icon48.svg` - Ícone médio (gerenciador de extensões)
+- `icon128.svg` - Ícone grande (Chrome Web Store)
 
 ## Como Usar
 
