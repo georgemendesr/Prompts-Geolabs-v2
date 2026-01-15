@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { LogOut, Library, Upload, Settings, BarChart3, FolderOpen } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import logoGeolabs from '@/assets/logo-geolabs.png';
 
 interface LayoutProps {
   children: ReactNode;
@@ -28,11 +29,9 @@ export function Layout({ children }: LayoutProps) {
         <div className="container flex h-14 items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/20">
-              <span className="text-sm font-bold text-white">SP</span>
-            </div>
-            <span className="font-bold text-lg hidden sm:inline bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">
-              Super Prompts
+            <img src={logoGeolabs} alt="Geolabs" className="h-10 w-auto" />
+            <span className="font-semibold text-lg hidden sm:inline text-foreground">
+              Prompts
             </span>
           </Link>
 
