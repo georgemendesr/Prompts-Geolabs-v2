@@ -3,6 +3,7 @@
 let currentCategory = '';
 let categories = [];
 let subcategoryGroups = [];
+let favorites = new Set();
 
 // DOM Elements
 const loginView = document.getElementById('login-view');
@@ -28,6 +29,7 @@ async function checkAuth() {
   
   if (response.isAuthenticated) {
     showMainView();
+    await loadFavorites();
     await loadCategories();
     await loadPrompts();
   } else {
@@ -81,6 +83,7 @@ loginForm.addEventListener('submit', async (e) => {
     loginError.classList.remove('hidden');
   } else {
     showMainView();
+    await loadFavorites();
     await loadCategories();
     await loadPrompts();
   }
@@ -97,6 +100,18 @@ openSidebarBtn.addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   chrome.sidePanel.open({ windowId: tab.windowId });
 });
+
+// Load favorites
+async function loadFavorites() {
+  const response = await chrome.runtime.sendMessage({ action: 'getFavorites' });
+  
+  if (response.error) {
+    console.error('Error loading favorites:', response.error);
+    return;
+  }
+  
+  favorites = new Set(response.map(f => f.prompt_id));
+}
 
 // Load categories
 async function loadCategories() {
@@ -161,10 +176,15 @@ function renderPrompts(prompts) {
     return;
   }
   
-  promptsList.innerHTML = prompts.map(prompt => `
+  promptsList.innerHTML = prompts.map(prompt => {
+    const isFavorite = favorites.has(prompt.id);
+    return `
     <div class="prompt-card" data-id="${prompt.id}">
       <div class="prompt-header">
         <h3 class="prompt-title">${escapeHtml(prompt.title)}</h3>
+        <button class="btn-favorite ${isFavorite ? 'active' : ''}" data-id="${prompt.id}" title="${isFavorite ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}">
+          ${isFavorite ? '★' : '☆'}
+        </button>
         ${prompt.categories ? `
           <span class="prompt-category" style="background: ${prompt.categories.color || '#6366f1'}20; color: ${prompt.categories.color || '#6366f1'}">
             ${prompt.categories.icon || ''} ${prompt.categories.name}
@@ -179,7 +199,29 @@ function renderPrompts(prompts) {
         ${prompt.rating ? `<span class="prompt-rating">⭐ ${prompt.rating}</span>` : ''}
       </div>
     </div>
-  `).join('');
+  `}).join('');
+  
+  // Add favorite handlers
+  document.querySelectorAll('.btn-favorite').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const promptId = e.target.dataset.id;
+      const isFavorite = favorites.has(promptId);
+      
+      if (isFavorite) {
+        await chrome.runtime.sendMessage({ action: 'removeFavorite', promptId });
+        favorites.delete(promptId);
+      } else {
+        await chrome.runtime.sendMessage({ action: 'addFavorite', promptId });
+        favorites.add(promptId);
+      }
+      
+      // Update button
+      e.target.classList.toggle('active');
+      e.target.textContent = favorites.has(promptId) ? '★' : '☆';
+      e.target.title = favorites.has(promptId) ? 'Remover dos favoritos' : 'Adicionar aos favoritos';
+    });
+  });
   
   // Add copy handlers
   document.querySelectorAll('.btn-copy').forEach(btn => {
