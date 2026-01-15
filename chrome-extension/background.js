@@ -128,6 +128,27 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     });
     return true;
   }
+
+  if (request.action === 'getFavorites') {
+    fetchFavorites()
+      .then(sendResponse)
+      .catch(error => sendResponse({ error: error.message }));
+    return true;
+  }
+
+  if (request.action === 'addFavorite') {
+    addFavorite(request.promptId)
+      .then(sendResponse)
+      .catch(error => sendResponse({ error: error.message }));
+    return true;
+  }
+
+  if (request.action === 'removeFavorite') {
+    removeFavorite(request.promptId)
+      .then(sendResponse)
+      .catch(error => sendResponse({ error: error.message }));
+    return true;
+  }
 });
 
 async function handleLogin(email, password) {
@@ -222,5 +243,48 @@ async function updatePromptUsage(promptId) {
       usage_count: currentCount + 1,
       last_used_at: new Date().toISOString()
     })
+  });
+}
+
+async function fetchFavorites() {
+  const { user } = await chrome.storage.local.get(['user']);
+  if (!user) {
+    throw new Error('User not found');
+  }
+  
+  return makeRequest(`favorites?user_id=eq.${user.id}&select=prompt_id`);
+}
+
+async function addFavorite(promptId) {
+  const token = await getAuthToken();
+  if (!token) {
+    throw new Error('Not authenticated');
+  }
+
+  const { user } = await chrome.storage.local.get(['user']);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  return makeRequest('favorites', {
+    method: 'POST',
+    headers: {
+      'Prefer': 'return=representation'
+    },
+    body: JSON.stringify({
+      user_id: user.id,
+      prompt_id: promptId
+    })
+  });
+}
+
+async function removeFavorite(promptId) {
+  const { user } = await chrome.storage.local.get(['user']);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  return makeRequest(`favorites?user_id=eq.${user.id}&prompt_id=eq.${promptId}`, {
+    method: 'DELETE'
   });
 }
