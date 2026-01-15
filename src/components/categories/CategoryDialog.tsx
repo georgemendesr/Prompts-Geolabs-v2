@@ -25,23 +25,14 @@ const generateSlug = (name: string) => {
 export function CategoryDialog({ open, onOpenChange, category, onSave, isLoading }: CategoryDialogProps) {
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
-  const [icon, setIcon] = useState('');
-  const [color, setColor] = useState('');
-  const [sortOrder, setSortOrder] = useState<number | ''>('');
 
   useEffect(() => {
     if (category) {
       setName(category.name);
       setSlug(category.slug);
-      setIcon(category.icon || '');
-      setColor(category.color || '');
-      setSortOrder(category.sort_order ?? '');
     } else {
       setName('');
       setSlug('');
-      setIcon('');
-      setColor('');
-      setSortOrder('');
     }
   }, [category, open]);
 
@@ -57,15 +48,12 @@ export function CategoryDialog({ open, onOpenChange, category, onSave, isLoading
     onSave({
       name,
       slug,
-      icon: icon || undefined,
-      color: color || undefined,
-      sort_order: sortOrder !== '' ? Number(sortOrder) : undefined,
     });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[350px]">
         <DialogHeader>
           <DialogTitle>{category ? 'Editar Categoria' : 'Nova Categoria'}</DialogTitle>
         </DialogHeader>
@@ -76,53 +64,16 @@ export function CategoryDialog({ open, onOpenChange, category, onSave, isLoading
               id="name"
               value={name}
               onChange={(e) => handleNameChange(e.target.value)}
-              placeholder="Ex: Música"
+              placeholder="Ex: Música, Texto, Imagem..."
               required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="slug">Slug</Label>
-            <Input
-              id="slug"
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              placeholder="Ex: musica"
-              required
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="icon">Ícone (Lucide)</Label>
-            <Input
-              id="icon"
-              value={icon}
-              onChange={(e) => setIcon(e.target.value)}
-              placeholder="Ex: Music"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="color">Cor (classe Tailwind)</Label>
-            <Input
-              id="color"
-              value={color}
-              onChange={(e) => setColor(e.target.value)}
-              placeholder="Ex: text-purple-500"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="sortOrder">Ordem</Label>
-            <Input
-              id="sortOrder"
-              type="number"
-              value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value ? Number(e.target.value) : '')}
-              placeholder="Ex: 1"
+              autoFocus
             />
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button type="submit" disabled={isLoading || !name.trim()}>
               {isLoading ? 'Salvando...' : 'Salvar'}
             </Button>
           </DialogFooter>
