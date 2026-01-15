@@ -2,9 +2,12 @@
 
 let categories = [];
 let subcategoryGroups = [];
+let allSubcategoryGroups = [];
 let expandedPrompt = null;
 let favorites = new Set();
 let showFavoritesOnly = false;
+let selectedCategoryId = null;
+let selectedSubcategoryGroupId = null;
 
 // DOM Elements
 const loginView = document.getElementById('login-view');
@@ -19,6 +22,9 @@ const saveForm = document.getElementById('save-form');
 const logoutBtn = document.getElementById('logout-btn');
 const newPromptBtn = document.getElementById('new-prompt-btn');
 const closeModalBtn = document.getElementById('close-modal');
+const categoryFilter = document.getElementById('category-filter');
+const subcategoryFilter = document.getElementById('subcategory-filter');
+const clearFiltersBtn = document.getElementById('clear-filters');
 const tabs = document.querySelectorAll('.tab');
 const tabContents = {
   search: document.getElementById('search-tab'),
@@ -139,6 +145,50 @@ async function loadCategories() {
   
   categories = response;
   populateCategorySelect();
+  populateCategoryFilter();
+  await loadAllSubcategoryGroups();
+}
+
+// Load all subcategory groups for filtering
+async function loadAllSubcategoryGroups() {
+  const groupsPromises = categories.map(cat => 
+    chrome.runtime.sendMessage({ action: 'getSubcategoryGroups', categoryId: cat.id })
+  );
+  
+  const groupsResults = await Promise.all(groupsPromises);
+  
+  allSubcategoryGroups = [];
+  categories.forEach((cat, index) => {
+    const groups = groupsResults[index] || [];
+    groups.forEach(g => {
+      allSubcategoryGroups.push({
+        ...g,
+        categoryId: cat.id,
+        categoryName: cat.name
+      });
+    });
+  });
+}
+
+// Populate category filter dropdown
+function populateCategoryFilter() {
+  categoryFilter.innerHTML = '<option value="">Todas as categorias</option>' +
+    categories.map(cat => `<option value="${cat.id}">${cat.icon || ''} ${cat.name}</option>`).join('');
+}
+
+// Update subcategory filter based on selected category
+function updateSubcategoryFilter(categoryId) {
+  let groups = allSubcategoryGroups;
+  
+  if (categoryId) {
+    groups = allSubcategoryGroups.filter(g => g.categoryId === categoryId);
+  }
+  
+  subcategoryFilter.innerHTML = '<option value="">Todas as subcategorias</option>' +
+    groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
+  
+  // Update visual indicator
+  subcategoryFilter.classList.toggle('has-value', false);
 }
 
 // Populate category select in modal
@@ -149,13 +199,15 @@ function populateCategorySelect() {
 }
 
 // Load prompts
-async function loadPrompts(search = '', categoryId = null) {
+async function loadPrompts(search = '', categoryId = null, subcategoryGroupId = null) {
   const searchValue = search || searchInput.value.trim();
+  const catId = categoryId !== null ? categoryId : selectedCategoryId;
+  const subId = subcategoryGroupId !== null ? subcategoryGroupId : selectedSubcategoryGroupId;
   
   const response = await chrome.runtime.sendMessage({
     action: 'getPrompts',
     search: searchValue,
-    categoryId
+    categoryId: catId
   });
   
   if (response.error) {
@@ -164,10 +216,15 @@ async function loadPrompts(search = '', categoryId = null) {
     return;
   }
   
-  // Filter by favorites if needed
+  // Filter by subcategory group if selected
   let prompts = response;
+  if (subId) {
+    prompts = prompts.filter(p => p.subcategory_group_id === subId);
+  }
+  
+  // Filter by favorites if needed
   if (showFavoritesOnly) {
-    prompts = response.filter(p => favorites.has(p.id));
+    prompts = prompts.filter(p => favorites.has(p.id));
   }
   
   renderPrompts(prompts);
@@ -369,6 +426,50 @@ let searchTimeout;
 searchInput.addEventListener('input', () => {
   clearTimeout(searchTimeout);
   searchTimeout = setTimeout(() => loadPrompts(), 300);
+});
+
+// Category filter change
+categoryFilter.addEventListener('change', async (e) => {
+  selectedCategoryId = e.target.value || null;
+  selectedSubcategoryGroupId = null;
+  subcategoryFilter.value = '';
+  
+  // Update visual indicators
+  categoryFilter.classList.toggle('has-value', !!selectedCategoryId);
+  subcategoryFilter.classList.toggle('has-value', false);
+  
+  // Update subcategory options
+  updateSubcategoryFilter(selectedCategoryId);
+  
+  await loadPrompts();
+});
+
+// Subcategory filter change
+subcategoryFilter.addEventListener('change', async (e) => {
+  selectedSubcategoryGroupId = e.target.value || null;
+  
+  // Update visual indicator
+  subcategoryFilter.classList.toggle('has-value', !!selectedSubcategoryGroupId);
+  
+  await loadPrompts();
+});
+
+// Clear filters button
+clearFiltersBtn.addEventListener('click', async () => {
+  selectedCategoryId = null;
+  selectedSubcategoryGroupId = null;
+  categoryFilter.value = '';
+  subcategoryFilter.value = '';
+  searchInput.value = '';
+  
+  // Remove visual indicators
+  categoryFilter.classList.remove('has-value');
+  subcategoryFilter.classList.remove('has-value');
+  
+  // Reset subcategory options
+  updateSubcategoryFilter(null);
+  
+  await loadPrompts();
 });
 
 // New prompt button
