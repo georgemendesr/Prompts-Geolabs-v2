@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Search, Loader2, Trash2, X, CheckSquare, Plus } from 'lucide-react';
+import { Search, Loader2, Trash2, X, CheckSquare, Plus, FolderPlus } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { PromptCard } from './PromptCard';
@@ -9,6 +9,7 @@ import { SubcategoryDropdown } from './SubcategoryDropdown';
 import { PromptDetailDrawer } from './PromptDetailDrawer';
 import { PromptEditDialog } from './PromptEditDialog';
 import { PromptCreateDialog } from './PromptCreateDialog';
+import { CategoryDialog } from './categories/CategoryDialog';
 import { 
   usePrompts, 
   useCategories, 
@@ -19,6 +20,7 @@ import {
   Category,
   SubcategoryGroup 
 } from '@/hooks/usePrompts';
+import { useCreateCategory } from '@/hooks/useCategories';
 import { useDebounce } from '@/hooks/useDebounce';
 
 export function PromptGrid() {
@@ -31,6 +33,7 @@ export function PromptGrid() {
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
   
   const debouncedSearch = useDebounce(searchQuery, 300);
   
@@ -51,6 +54,7 @@ export function PromptGrid() {
     debouncedSearch || undefined
   );
   const deletePrompts = useDeletePrompts();
+  const createCategory = useCreateCategory();
 
   const handleCategorySelect = (slug: string | null) => {
     setSelectedCategory(slug);
@@ -98,13 +102,24 @@ export function PromptGrid() {
 
   return (
     <div className="space-y-6">
-      {/* Category Tabs (Level 1) */}
+      {/* Category Tabs (Level 1) with Add Button */}
       {!loadingCategories && (
-        <CategoryPills
-          categories={categories}
-          selectedCategory={selectedCategory}
-          onSelect={handleCategorySelect}
-        />
+        <div className="flex items-center gap-2">
+          <CategoryPills
+            categories={categories}
+            selectedCategory={selectedCategory}
+            onSelect={handleCategorySelect}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCategoryDialogOpen(true)}
+            className="gap-1 shrink-0"
+          >
+            <FolderPlus className="h-4 w-4" />
+            <span className="hidden sm:inline">Nova Categoria</span>
+          </Button>
+        </div>
       )}
 
       {/* Action Buttons */}
@@ -266,6 +281,18 @@ export function PromptGrid() {
           subcategoryGroup={selectedSubcategoryGroup}
         />
       )}
+
+      {/* Category Create Dialog */}
+      <CategoryDialog
+        open={categoryDialogOpen}
+        onOpenChange={setCategoryDialogOpen}
+        onSave={(data) => {
+          createCategory.mutate(data, {
+            onSuccess: () => setCategoryDialogOpen(false)
+          });
+        }}
+        isLoading={createCategory.isPending}
+      />
     </div>
   );
 }
