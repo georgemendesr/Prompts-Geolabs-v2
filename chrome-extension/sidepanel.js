@@ -49,9 +49,57 @@ async function checkAuth() {
     showMainView();
     await loadFavorites();
     await loadCategories();
+    await restoreFilters();
     await loadPrompts();
   } else {
     showLoginView();
+  }
+}
+
+// Save filters to chrome.storage
+async function saveFilters() {
+  const filters = {
+    categoryId: selectedCategoryId,
+    subcategoryGroupId: selectedSubcategoryGroupId,
+    subcategory: selectedSubcategory,
+    searchText: searchInput.value
+  };
+  await chrome.storage.local.set({ savedFilters: filters });
+}
+
+// Restore filters from chrome.storage
+async function restoreFilters() {
+  const result = await chrome.storage.local.get('savedFilters');
+  const filters = result.savedFilters;
+  
+  if (!filters) return;
+  
+  // Restore category
+  if (filters.categoryId) {
+    selectedCategoryId = filters.categoryId;
+    categoryFilter.value = filters.categoryId;
+    categoryFilter.classList.toggle('has-value', true);
+    updateSubcategoryGroupFilter(filters.categoryId);
+  }
+  
+  // Restore subcategory group
+  if (filters.subcategoryGroupId) {
+    selectedSubcategoryGroupId = filters.subcategoryGroupId;
+    subcategoryGroupFilter.value = filters.subcategoryGroupId;
+    subcategoryGroupFilter.classList.toggle('has-value', true);
+    await updateSubcategoryFilter(filters.subcategoryGroupId);
+  }
+  
+  // Restore subcategory
+  if (filters.subcategory) {
+    selectedSubcategory = filters.subcategory;
+    subcategoryFilter.value = filters.subcategory;
+    subcategoryFilter.classList.toggle('has-value', true);
+  }
+  
+  // Restore search text
+  if (filters.searchText) {
+    searchInput.value = filters.searchText;
   }
 }
 
@@ -492,7 +540,10 @@ async function renderCategoryTree() {
 let searchTimeout;
 searchInput.addEventListener('input', () => {
   clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(() => loadPrompts(), 300);
+  searchTimeout = setTimeout(async () => {
+    await saveFilters();
+    await loadPrompts();
+  }, 300);
 });
 
 // Category filter change
@@ -511,6 +562,7 @@ categoryFilter.addEventListener('change', async (e) => {
   // Update subcategory group options
   updateSubcategoryGroupFilter(selectedCategoryId);
   
+  await saveFilters();
   await loadPrompts();
 });
 
@@ -527,6 +579,7 @@ subcategoryGroupFilter.addEventListener('change', async (e) => {
   // Update subcategory options
   await updateSubcategoryFilter(selectedSubcategoryGroupId);
   
+  await saveFilters();
   await loadPrompts();
 });
 
@@ -537,6 +590,7 @@ subcategoryFilter.addEventListener('change', async (e) => {
   // Update visual indicator
   subcategoryFilter.classList.toggle('has-value', !!selectedSubcategory);
   
+  await saveFilters();
   await loadPrompts();
 });
 
@@ -558,6 +612,7 @@ clearFiltersBtn.addEventListener('click', async () => {
   // Reset filters
   updateSubcategoryGroupFilter(null);
   
+  await saveFilters();
   await loadPrompts();
 });
 
