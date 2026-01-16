@@ -182,6 +182,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  if (request.action === 'getSubcategories') {
+    fetchSubcategories(request.subcategoryGroupId)
+      .then(sendResponse)
+      .catch(error => sendResponse({ error: error.message }));
+    return true;
+  }
+
   if (request.action === 'copyPrompt') {
     updatePromptUsage(request.promptId)
       .then(sendResponse)
@@ -282,6 +289,28 @@ async function fetchSubcategoryGroups(categoryId) {
     query += `&category_id=eq.${categoryId}`;
   }
   return makeRequest(query);
+}
+
+async function fetchSubcategories(subcategoryGroupId) {
+  if (!subcategoryGroupId) {
+    return [];
+  }
+  
+  // Get prompts with this subcategory_group_id and count distinct subcategories
+  const prompts = await makeRequest(`prompts?select=subcategory&subcategory_group_id=eq.${subcategoryGroupId}`);
+  
+  // Count by subcategory
+  const counts = {};
+  prompts.forEach(p => {
+    if (p.subcategory) {
+      counts[p.subcategory] = (counts[p.subcategory] || 0) + 1;
+    }
+  });
+  
+  // Convert to array format
+  return Object.entries(counts)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 async function savePrompt(prompt) {
