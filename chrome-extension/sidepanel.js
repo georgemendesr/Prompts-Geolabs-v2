@@ -224,7 +224,7 @@ async function loadAllSubcategoryGroups() {
 
 // Populate category filter dropdown
 function populateCategoryFilter() {
-  categoryFilter.innerHTML = '<option value="">Todas as categorias</option>' +
+  categoryFilter.innerHTML = '<option value="">Categorias</option>' +
     categories.map(cat => `<option value="${cat.id}">${cat.name}</option>`).join('');
 }
 
@@ -236,20 +236,20 @@ function updateSubcategoryGroupFilter(categoryId) {
     groups = allSubcategoryGroups.filter(g => g.categoryId === categoryId);
   }
   
-  subcategoryGroupFilter.innerHTML = '<option value="">Todos os grupos</option>' +
+  subcategoryGroupFilter.innerHTML = '<option value="">Grupos</option>' +
     groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
   
   subcategoryGroupFilter.classList.toggle('has-value', false);
   
   // Reset subcategory filter
-  subcategoryFilter.innerHTML = '<option value="">Todas as subcategorias</option>';
+  subcategoryFilter.innerHTML = '<option value="">Subcategorias</option>';
   subcategoryFilter.classList.toggle('has-value', false);
 }
 
 // Update subcategory filter based on selected subcategory group
 async function updateSubcategoryFilter(subcategoryGroupId) {
   if (!subcategoryGroupId) {
-    subcategoryFilter.innerHTML = '<option value="">Todas as subcategorias</option>';
+    subcategoryFilter.innerHTML = '<option value="">Subcategorias</option>';
     subcategoryFilter.classList.toggle('has-value', false);
     return;
   }
@@ -265,7 +265,7 @@ async function updateSubcategoryFilter(subcategoryGroupId) {
   }
   
   allSubcategories = response;
-  subcategoryFilter.innerHTML = '<option value="">Todas as subcategorias</option>' +
+  subcategoryFilter.innerHTML = '<option value="">Subcategorias</option>' +
     response.map(sub => `<option value="${sub.name}">${sub.name} (${sub.count})</option>`).join('');
   
   subcategoryFilter.classList.toggle('has-value', false);
@@ -722,7 +722,7 @@ function renderPromptCard(prompt) {
         </button>
         ${prompt.categories ? `
           <span class="prompt-category" style="background: ${prompt.categories.color || '#6366f1'}20; color: ${prompt.categories.color || '#6366f1'}">
-            ${prompt.categories.icon || ''} ${prompt.categories.name}
+            ${prompt.categories.name}
           </span>
         ` : ''}
       </div>
