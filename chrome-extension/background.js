@@ -18,6 +18,14 @@ chrome.runtime.onInstalled.addListener(() => {
     title: 'Abrir Prompt Manager',
     contexts: ['page']
   });
+  
+  // Set sidepanel to open on right side
+  chrome.sidePanel.setOptions({
+    enabled: true
+  });
+  
+  // Configure sidepanel behavior
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 });
 
 // Handle context menu clicks
