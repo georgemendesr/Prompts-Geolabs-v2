@@ -130,7 +130,7 @@ async function loadCategories() {
 function renderCategories() {
   categoriesList.innerHTML = categories.map(cat => `
     <button class="category-pill" data-category="${cat.id}">
-      ${cat.icon || ''} ${cat.name}
+      ${cat.name}
     </button>
   `).join('');
   
