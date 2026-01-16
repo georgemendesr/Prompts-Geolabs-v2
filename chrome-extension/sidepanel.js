@@ -173,7 +173,7 @@ async function loadAllSubcategoryGroups() {
 // Populate category filter dropdown
 function populateCategoryFilter() {
   categoryFilter.innerHTML = '<option value="">Todas as categorias</option>' +
-    categories.map(cat => `<option value="${cat.id}">${cat.icon || ''} ${cat.name}</option>`).join('');
+    categories.map(cat => `<option value="${cat.id}">${cat.name}</option>`).join('');
 }
 
 // Update subcategory filter based on selected category
@@ -195,7 +195,7 @@ function updateSubcategoryFilter(categoryId) {
 function populateCategorySelect() {
   const categorySelect = document.getElementById('prompt-category');
   categorySelect.innerHTML = '<option value="">Selecione uma categoria</option>' +
-    categories.map(cat => `<option value="${cat.id}">${cat.icon || ''} ${cat.name}</option>`).join('');
+    categories.map(cat => `<option value="${cat.id}">${cat.name}</option>`).join('');
 }
 
 // Load prompts
@@ -375,7 +375,6 @@ async function renderCategoryTree() {
     return `
       <div class="category-item">
         <div class="category-header" data-category="${cat.id}">
-          <span class="category-icon">${cat.icon || '📁'}</span>
           <span class="category-name">${cat.name}</span>
         </div>
         ${groups.length > 0 ? `
