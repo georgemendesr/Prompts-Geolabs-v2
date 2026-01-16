@@ -47,7 +47,69 @@ async function getAuthToken() {
   });
 }
 
+// Refresh token if expired
+async function refreshTokenIfNeeded() {
+  return new Promise(async (resolve) => {
+    const data = await chrome.storage.local.get(['authToken', 'refreshToken', 'tokenExpiry']);
+    
+    if (!data.authToken || !data.refreshToken) {
+      resolve(false);
+      return;
+    }
+    
+    // Check if token is about to expire (5 min buffer)
+    const now = Date.now();
+    const expiry = data.tokenExpiry || 0;
+    
+    if (now < expiry - 300000) {
+      // Token still valid
+      resolve(true);
+      return;
+    }
+    
+    // Refresh the token
+    try {
+      const response = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_KEY,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ refresh_token: data.refreshToken })
+      });
+      
+      if (!response.ok) {
+        // Refresh failed, clear session
+        await chrome.storage.local.remove(['authToken', 'refreshToken', 'user', 'tokenExpiry']);
+        resolve(false);
+        return;
+      }
+      
+      const newData = await response.json();
+      
+      // Calculate expiry (default 1 hour if not provided)
+      const expiresIn = newData.expires_in || 3600;
+      const newExpiry = Date.now() + (expiresIn * 1000);
+      
+      await chrome.storage.local.set({
+        authToken: newData.access_token,
+        refreshToken: newData.refresh_token,
+        tokenExpiry: newExpiry,
+        user: newData.user
+      });
+      
+      resolve(true);
+    } catch (error) {
+      console.error('Token refresh failed:', error);
+      resolve(false);
+    }
+  });
+}
+
 async function makeRequest(endpoint, options = {}) {
+  // Try to refresh token before making request
+  await refreshTokenIfNeeded();
+  
   const token = await getAuthToken();
   
   const headers = {
@@ -120,12 +182,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.action === 'checkAuth') {
-    chrome.storage.local.get(['authToken', 'user'], (result) => {
+    (async () => {
+      // Try to refresh token if needed
+      const isValid = await refreshTokenIfNeeded();
+      const { authToken, user } = await chrome.storage.local.get(['authToken', 'user']);
+      
       sendResponse({ 
-        isAuthenticated: !!result.authToken,
-        user: result.user 
+        isAuthenticated: isValid && !!authToken,
+        user: user 
       });
-    });
+    })();
     return true;
   }
 
@@ -168,9 +234,14 @@ async function handleLogin(email, password) {
 
   const data = await response.json();
   
+  // Calculate expiry (default 1 hour if not provided)
+  const expiresIn = data.expires_in || 3600;
+  const tokenExpiry = Date.now() + (expiresIn * 1000);
+  
   await chrome.storage.local.set({
     authToken: data.access_token,
     refreshToken: data.refresh_token,
+    tokenExpiry: tokenExpiry,
     user: data.user
   });
 
