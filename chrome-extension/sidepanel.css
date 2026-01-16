@@ -621,3 +621,28 @@ body {
   border-color: #6366f1;
   background-color: rgba(99, 102, 241, 0.15);
 }
+
+/* Active Filters Display */
+.active-filters {
+  display: none;
+  padding: 0 20px 12px;
+  background: #252538;
+}
+
+.active-filters.visible {
+  display: block;
+}
+
+.filter-breadcrumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  color: #a5b4fc;
+  padding: 8px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}

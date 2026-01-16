@@ -3,11 +3,13 @@
 let categories = [];
 let subcategoryGroups = [];
 let allSubcategoryGroups = [];
+let allSubcategories = [];
 let expandedPrompt = null;
 let favorites = new Set();
 let showFavoritesOnly = false;
 let selectedCategoryId = null;
 let selectedSubcategoryGroupId = null;
+let selectedSubcategory = null;
 
 // DOM Elements
 const loginView = document.getElementById('login-view');
@@ -23,7 +25,9 @@ const logoutBtn = document.getElementById('logout-btn');
 const newPromptBtn = document.getElementById('new-prompt-btn');
 const closeModalBtn = document.getElementById('close-modal');
 const categoryFilter = document.getElementById('category-filter');
+const subcategoryGroupFilter = document.getElementById('subcategory-group-filter');
 const subcategoryFilter = document.getElementById('subcategory-filter');
+const activeFiltersDiv = document.getElementById('active-filters');
 const clearFiltersBtn = document.getElementById('clear-filters');
 const tabs = document.querySelectorAll('.tab');
 const tabContents = {
@@ -176,19 +180,74 @@ function populateCategoryFilter() {
     categories.map(cat => `<option value="${cat.id}">${cat.name}</option>`).join('');
 }
 
-// Update subcategory filter based on selected category
-function updateSubcategoryFilter(categoryId) {
+// Update subcategory group filter based on selected category
+function updateSubcategoryGroupFilter(categoryId) {
   let groups = allSubcategoryGroups;
   
   if (categoryId) {
     groups = allSubcategoryGroups.filter(g => g.categoryId === categoryId);
   }
   
-  subcategoryFilter.innerHTML = '<option value="">Todas as subcategorias</option>' +
+  subcategoryGroupFilter.innerHTML = '<option value="">Todos os grupos</option>' +
     groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
   
-  // Update visual indicator
+  subcategoryGroupFilter.classList.toggle('has-value', false);
+  
+  // Reset subcategory filter
+  subcategoryFilter.innerHTML = '<option value="">Todas as subcategorias</option>';
   subcategoryFilter.classList.toggle('has-value', false);
+}
+
+// Update subcategory filter based on selected subcategory group
+async function updateSubcategoryFilter(subcategoryGroupId) {
+  if (!subcategoryGroupId) {
+    subcategoryFilter.innerHTML = '<option value="">Todas as subcategorias</option>';
+    subcategoryFilter.classList.toggle('has-value', false);
+    return;
+  }
+  
+  const response = await chrome.runtime.sendMessage({
+    action: 'getSubcategories',
+    subcategoryGroupId
+  });
+  
+  if (response.error) {
+    console.error('Error loading subcategories:', response.error);
+    return;
+  }
+  
+  allSubcategories = response;
+  subcategoryFilter.innerHTML = '<option value="">Todas as subcategorias</option>' +
+    response.map(sub => `<option value="${sub.name}">${sub.name} (${sub.count})</option>`).join('');
+  
+  subcategoryFilter.classList.toggle('has-value', false);
+}
+
+// Update active filters display
+function updateActiveFiltersDisplay() {
+  const parts = [];
+  
+  if (selectedCategoryId) {
+    const cat = categories.find(c => c.id === selectedCategoryId);
+    if (cat) parts.push(cat.name.toUpperCase());
+  }
+  
+  if (selectedSubcategoryGroupId) {
+    const group = allSubcategoryGroups.find(g => g.id === selectedSubcategoryGroupId);
+    if (group) parts.push(group.name.toUpperCase());
+  }
+  
+  if (selectedSubcategory) {
+    parts.push(selectedSubcategory.toUpperCase());
+  }
+  
+  if (parts.length > 0) {
+    activeFiltersDiv.innerHTML = `<span class="filter-breadcrumb">${parts.join(' → ')}</span>`;
+    activeFiltersDiv.classList.add('visible');
+  } else {
+    activeFiltersDiv.innerHTML = '';
+    activeFiltersDiv.classList.remove('visible');
+  }
 }
 
 // Populate category select in modal
@@ -199,10 +258,11 @@ function populateCategorySelect() {
 }
 
 // Load prompts
-async function loadPrompts(search = '', categoryId = null, subcategoryGroupId = null) {
+async function loadPrompts(search = '', categoryId = null, subcategoryGroupId = null, subcategory = null) {
   const searchValue = search || searchInput.value.trim();
   const catId = categoryId !== null ? categoryId : selectedCategoryId;
-  const subId = subcategoryGroupId !== null ? subcategoryGroupId : selectedSubcategoryGroupId;
+  const subGroupId = subcategoryGroupId !== null ? subcategoryGroupId : selectedSubcategoryGroupId;
+  const subcat = subcategory !== null ? subcategory : selectedSubcategory;
   
   const response = await chrome.runtime.sendMessage({
     action: 'getPrompts',
@@ -218,14 +278,22 @@ async function loadPrompts(search = '', categoryId = null, subcategoryGroupId = 
   
   // Filter by subcategory group if selected
   let prompts = response;
-  if (subId) {
-    prompts = prompts.filter(p => p.subcategory_group_id === subId);
+  if (subGroupId) {
+    prompts = prompts.filter(p => p.subcategory_group_id === subGroupId);
+  }
+  
+  // Filter by subcategory if selected
+  if (subcat) {
+    prompts = prompts.filter(p => p.subcategory === subcat);
   }
   
   // Filter by favorites if needed
   if (showFavoritesOnly) {
     prompts = prompts.filter(p => favorites.has(p.id));
   }
+  
+  // Update active filters display
+  updateActiveFiltersDisplay();
   
   renderPrompts(prompts);
 }
@@ -431,24 +499,43 @@ searchInput.addEventListener('input', () => {
 categoryFilter.addEventListener('change', async (e) => {
   selectedCategoryId = e.target.value || null;
   selectedSubcategoryGroupId = null;
+  selectedSubcategory = null;
+  subcategoryGroupFilter.value = '';
   subcategoryFilter.value = '';
   
   // Update visual indicators
   categoryFilter.classList.toggle('has-value', !!selectedCategoryId);
+  subcategoryGroupFilter.classList.toggle('has-value', false);
+  subcategoryFilter.classList.toggle('has-value', false);
+  
+  // Update subcategory group options
+  updateSubcategoryGroupFilter(selectedCategoryId);
+  
+  await loadPrompts();
+});
+
+// Subcategory group filter change
+subcategoryGroupFilter.addEventListener('change', async (e) => {
+  selectedSubcategoryGroupId = e.target.value || null;
+  selectedSubcategory = null;
+  subcategoryFilter.value = '';
+  
+  // Update visual indicators
+  subcategoryGroupFilter.classList.toggle('has-value', !!selectedSubcategoryGroupId);
   subcategoryFilter.classList.toggle('has-value', false);
   
   // Update subcategory options
-  updateSubcategoryFilter(selectedCategoryId);
+  await updateSubcategoryFilter(selectedSubcategoryGroupId);
   
   await loadPrompts();
 });
 
 // Subcategory filter change
 subcategoryFilter.addEventListener('change', async (e) => {
-  selectedSubcategoryGroupId = e.target.value || null;
+  selectedSubcategory = e.target.value || null;
   
   // Update visual indicator
-  subcategoryFilter.classList.toggle('has-value', !!selectedSubcategoryGroupId);
+  subcategoryFilter.classList.toggle('has-value', !!selectedSubcategory);
   
   await loadPrompts();
 });
@@ -457,16 +544,19 @@ subcategoryFilter.addEventListener('change', async (e) => {
 clearFiltersBtn.addEventListener('click', async () => {
   selectedCategoryId = null;
   selectedSubcategoryGroupId = null;
+  selectedSubcategory = null;
   categoryFilter.value = '';
+  subcategoryGroupFilter.value = '';
   subcategoryFilter.value = '';
   searchInput.value = '';
   
   // Remove visual indicators
   categoryFilter.classList.remove('has-value');
+  subcategoryGroupFilter.classList.remove('has-value');
   subcategoryFilter.classList.remove('has-value');
   
-  // Reset subcategory options
-  updateSubcategoryFilter(null);
+  // Reset filters
+  updateSubcategoryGroupFilter(null);
   
   await loadPrompts();
 });
