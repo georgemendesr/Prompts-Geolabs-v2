@@ -139,8 +139,14 @@ export function usePrompts(
         query = query.eq('subcategory', subcategory);
       }
 
-      if (search) {
-        query = query.or(`title.ilike.%${search}%,content.ilike.%${search}%`);
+      if (search && search.length <= 100) {
+        // Sanitize search input to prevent PostgREST filter injection
+        // Remove special characters that could manipulate query logic: % , . ( )
+        const sanitized = search.replace(/[%,\.\(\)]/g, '').trim();
+        
+        if (sanitized.length > 0) {
+          query = query.or(`title.ilike.%${sanitized}%,content.ilike.%${sanitized}%`);
+        }
       }
 
       const { data, error } = await query;
