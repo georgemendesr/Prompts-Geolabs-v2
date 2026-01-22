@@ -270,8 +270,14 @@ async function fetchPrompts(search = '', categoryId = null) {
     query += `&category_id=eq.${categoryId}`;
   }
   
-  if (search) {
-    query += `&or=(title.ilike.*${search}*,content.ilike.*${search}*)`;
+  // Sanitize search input to prevent PostgREST filter injection
+  // Remove special characters that could manipulate query logic: * % , . ( )
+  if (search && search.length <= 100) {
+    const sanitized = search.replace(/[*%,\.\(\)]/g, '').trim();
+    
+    if (sanitized.length > 0) {
+      query += `&or=(title.ilike.*${sanitized}*,content.ilike.*${sanitized}*)`;
+    }
   }
   
   query += '&limit=50';
