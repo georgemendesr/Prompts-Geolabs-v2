@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import Settings from "./pages/Settings";
 import Projects from "./pages/Projects";
 import Install from "./pages/Install";
+import ChromeExtension from "./pages/ChromeExtension";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/install" element={<Install />} />
+              <Route path="/chrome-extension" element={<ChromeExtension />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

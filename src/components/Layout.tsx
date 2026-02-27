@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { LogOut, Library, Upload, Settings, BarChart3, FolderOpen } from 'lucide-react';
+import { LogOut, Library, Upload, Settings, BarChart3, FolderOpen, Chrome } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import logoGeolabs from '@/assets/logo-geolabs.png';
@@ -16,6 +16,7 @@ const navItems = [
   { href: '/import', icon: Upload, label: 'Importar' },
   { href: '/dashboard', icon: BarChart3, label: 'Dashboard' },
   { href: '/settings', icon: Settings, label: 'Config' },
+  { href: '/chrome-extension', icon: Chrome, label: 'Extensão' },
 ];
 
 export function Layout({ children }: LayoutProps) {
